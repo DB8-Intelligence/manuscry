@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useProjectStore } from '../stores/projectStore';
+import { useProjectStore } from '@/stores/projectStore';
 import { PIPELINE_PHASES } from '@manuscry/shared';
-import PhaseCard from '../components/pipeline/PhaseCard';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 function getPhaseStatus(
   phaseId: number,
@@ -11,9 +12,21 @@ function getPhaseStatus(
 ): 'locked' | 'active' | 'completed' {
   if (phasesCompleted.includes(phaseId)) return 'completed';
   if (phaseId === currentPhase) return 'active';
-  if (phaseId === 0) return 'active'; // Phase 0 always starts active
+  if (phaseId === 0) return 'active';
   return 'locked';
 }
+
+const STATUS_STYLES = {
+  locked: 'opacity-40 cursor-not-allowed border-slate-700 bg-slate-900/30',
+  active: 'cursor-pointer border-[#1E3A8A]/50 bg-slate-900/50 hover:border-[#1E3A8A] hover:bg-slate-800/60',
+  completed: 'cursor-pointer border-emerald-800/50 bg-emerald-950/20 hover:border-emerald-700',
+};
+
+const STATUS_BADGES = {
+  locked: { text: 'Bloqueada', className: 'bg-slate-800 text-slate-500' },
+  active: { text: 'Ativa', className: 'bg-[#1E3A8A]/30 text-[#93C5FD]' },
+  completed: { text: 'Concluída', className: 'bg-emerald-900/30 text-emerald-400' },
+};
 
 export default function ProjectView() {
   const { id } = useParams<{ id: string }>();
@@ -26,8 +39,8 @@ export default function ProjectView() {
 
   if (loading || !currentProject) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500">Carregando projeto...</div>
+      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
+        <div className="text-slate-500">Carregando projeto...</div>
       </div>
     );
   }
@@ -35,36 +48,42 @@ export default function ProjectView() {
   const phasesCompleted = currentProject.phases_completed || [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <button
+    <div className="min-h-screen bg-[#0F172A]">
+      <header className="border-b border-slate-800 bg-slate-900/50">
+        <div className="max-w-5xl mx-auto px-6 py-5">
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => navigate('/dashboard')}
-            className="text-sm text-gray-500 hover:text-gray-700 mb-2"
+            className="text-slate-400 hover:text-white mb-3 -ml-2"
           >
-            &larr; Voltar ao Dashboard
-          </button>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {currentProject.name}
-          </h1>
-          <p className="text-sm text-gray-500">
-            {currentProject.genre} &middot;{' '}
-            {currentProject.market === 'pt-br' ? 'PT-BR' : 'EN'} &middot;{' '}
-            {phasesCompleted.length}/6 fases completas
-          </p>
+            &larr; Dashboard
+          </Button>
+          <h1 className="text-2xl font-bold text-white">{currentProject.name}</h1>
+          <div className="flex items-center gap-3 mt-2">
+            <Badge variant="secondary" className="bg-slate-800 text-slate-300">
+              {currentProject.genre}
+            </Badge>
+            <Badge variant="secondary" className="bg-slate-800 text-slate-300">
+              {currentProject.market === 'pt-br' ? 'PT-BR' : 'EN'}
+            </Badge>
+            <span className="text-sm text-slate-500">
+              {phasesCompleted.length}/6 fases completas
+            </span>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        {/* Progress bar */}
+      <main className="max-w-5xl mx-auto px-6 py-8">
+        {/* Progress */}
         <div className="mb-8">
-          <div className="flex justify-between text-xs text-gray-500 mb-1">
-            <span>Progresso</span>
+          <div className="flex justify-between text-xs text-slate-500 mb-2">
+            <span>Progresso do livro</span>
             <span>{Math.round((phasesCompleted.length / 6) * 100)}%</span>
           </div>
-          <div className="bg-gray-200 rounded-full h-3">
+          <div className="bg-slate-800 rounded-full h-2">
             <div
-              className="bg-purple-500 h-3 rounded-full transition-all"
+              className="bg-amber-500 h-2 rounded-full transition-all"
               style={{ width: `${(phasesCompleted.length / 6) * 100}%` }}
             />
           </div>
@@ -72,22 +91,25 @@ export default function ProjectView() {
 
         {/* Phase cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {PIPELINE_PHASES.map((phase) => (
-            <PhaseCard
-              key={phase.id}
-              phase={phase.id}
-              name={phase.name}
-              description={phase.description}
-              status={getPhaseStatus(
-                phase.id,
-                currentProject.current_phase,
-                phasesCompleted,
-              )}
-              onClick={() =>
-                navigate(`/projects/${currentProject.id}/phase-${phase.id}`)
-              }
-            />
-          ))}
+          {PIPELINE_PHASES.map((phase) => {
+            const status = getPhaseStatus(phase.id, currentProject.current_phase, phasesCompleted);
+            const badge = STATUS_BADGES[status];
+            return (
+              <button
+                key={phase.id}
+                onClick={status !== 'locked' ? () => navigate(`/projects/${currentProject.id}/phase-${phase.id}`) : undefined}
+                disabled={status === 'locked'}
+                className={`w-full text-left rounded-xl border p-5 transition-all ${STATUS_STYLES[status]}`}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <span className="text-xs font-mono text-slate-500">FASE {phase.id}</span>
+                  <Badge className={badge.className}>{badge.text}</Badge>
+                </div>
+                <h3 className="font-semibold text-white mb-1">{phase.name}</h3>
+                <p className="text-sm text-slate-400">{phase.description}</p>
+              </button>
+            );
+          })}
         </div>
       </main>
     </div>

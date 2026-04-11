@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { requireAuth, type AuthenticatedRequest } from '../../middleware/auth.js';
-import { supabaseAdmin } from '../../services/supabase.js';
-import { generateStructured } from '../../services/claude.service.js';
-import { buildPhase0Prompt } from '../../services/prompts/phase0.prompt.js';
+import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
+import { supabaseAdmin } from '../services/supabase.js';
+import { generateStructured } from '../services/claude.service.js';
+import { buildPhase0Prompt } from '../services/prompts/phase0.prompt.js';
 import type { Phase0Data } from '@manuscry/shared';
 
 export const pipelineRouter = Router();

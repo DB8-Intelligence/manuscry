@@ -1,19 +1,18 @@
-import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useUserStore } from './stores/userStore';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import ProjectView from './pages/ProjectView';
-import Phase0 from './pages/Phase0';
+import { useAuth } from '@/hooks/useAuth';
+import Auth from '@/pages/Auth';
+import AuthCallback from '@/pages/AuthCallback';
+import Dashboard from '@/pages/Dashboard';
+import ProjectView from '@/pages/ProjectView';
+import Phase0 from '@/pages/Phase0';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useUserStore();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-500">Carregando...</div>
+      <div className="min-h-screen flex items-center justify-center bg-[#0F172A]">
+        <div className="animate-spin w-6 h-6 border-2 border-slate-600 border-t-white rounded-full" />
       </div>
     );
   }
@@ -26,12 +25,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useUserStore();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-500">Carregando...</div>
+      <div className="min-h-screen flex items-center justify-center bg-[#0F172A]">
+        <div className="animate-spin w-6 h-6 border-2 border-slate-600 border-t-white rounded-full" />
       </div>
     );
   }
@@ -44,56 +43,15 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const initialize = useUserStore((s) => s.initialize);
-
-  useEffect(() => {
-    initialize();
-  }, [initialize]);
-
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route
-          path="/login"
-          element={
-            <PublicRoute>
-              <Login />
-            </PublicRoute>
-          }
-        />
-        <Route
-          path="/register"
-          element={
-            <PublicRoute>
-              <Register />
-            </PublicRoute>
-          }
-        />
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/projects/:id"
-          element={
-            <ProtectedRoute>
-              <ProjectView />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/projects/:id/phase-0"
-          element={
-            <ProtectedRoute>
-              <Phase0 />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/login" element={<PublicRoute><Auth /></PublicRoute>} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/projects/:id" element={<ProtectedRoute><ProjectView /></ProtectedRoute>} />
+        <Route path="/projects/:id/phase-0" element={<ProtectedRoute><Phase0 /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );

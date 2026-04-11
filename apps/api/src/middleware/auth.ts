@@ -1,7 +1,15 @@
 import type { Request, Response, NextFunction } from 'express';
 import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '../services/supabase.js';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  plan: string;
+}
 
 export interface AuthenticatedRequest extends Request {
+  user?: AuthUser;
   userId?: string;
 }
 
@@ -29,6 +37,19 @@ export async function requireAuth(
     return;
   }
 
+  // Fetch user profile for plan info
+  const { data: profile } = await supabaseAdmin
+    .from('users')
+    .select('plan')
+    .eq('id', data.user.id)
+    .single();
+
+  req.user = {
+    id: data.user.id,
+    email: data.user.email || '',
+    plan: profile?.plan || 'trial',
+  };
   req.userId = data.user.id;
+
   next();
 }

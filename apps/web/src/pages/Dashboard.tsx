@@ -1,8 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useProjectStore } from '../stores/projectStore';
-import { useUserStore } from '../stores/userStore';
-import NewProjectModal from '../components/NewProjectModal';
+import { useAuth } from '@/hooks/useAuth';
+import { useProjectStore } from '@/stores/projectStore';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const PHASE_LABELS = [
   'Análise de Mercado',
@@ -13,101 +19,238 @@ const PHASE_LABELS = [
   'Produção',
 ];
 
+const FICTION_GENRES = [
+  'Romance', 'Suspense / Thriller', 'Ficção Científica', 'Fantasia',
+  'Terror / Horror', 'Mistério / Policial', 'Drama', 'Aventura',
+  'Dark Romance', 'Comédia Romântica', 'Distopia', 'Ficção Histórica',
+];
+
+const NONFICTION_GENRES = [
+  'Autoajuda / Desenvolvimento Pessoal', 'Negócios / Empreendedorismo',
+  'Finanças Pessoais', 'Produtividade', 'Saúde / Bem-estar',
+  'Psicologia', 'Marketing Digital', 'Liderança',
+  'Educação / Pedagogia', 'Espiritualidade', 'Biografia',
+  'Culinária', 'Tecnologia / IA',
+];
+
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, signOut } = useUserStore();
-  const { projects, loading, fetchProjects } = useProjectStore();
-  const [showModal, setShowModal] = useState(false);
+  const { user, signOut } = useAuth();
+  const { projects, loading, fetchProjects, createProject } = useProjectStore();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState('');
+
+  // New project form
+  const [name, setName] = useState('');
+  const [genreMode, setGenreMode] = useState<'fiction' | 'nonfiction'>('fiction');
+  const [genre, setGenre] = useState('');
+  const [market, setMarket] = useState<'pt-br' | 'en'>('pt-br');
+
+  const genres = genreMode === 'fiction' ? FICTION_GENRES : NONFICTION_GENRES;
 
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
 
+  async function handleCreate() {
+    if (!name || !genre) { setError('Nome e gênero são obrigatórios'); return; }
+    setCreating(true);
+    setError('');
+    try {
+      const project = await createProject({ name, market, genre, genre_mode: genreMode });
+      setModalOpen(false);
+      setName(''); setGenre('');
+      navigate(`/projects/${project.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao criar projeto');
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-purple-600">Manuscry</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-500">{user?.email}</span>
-            <button
-              onClick={signOut}
-              className="text-sm text-gray-500 hover:text-gray-700"
-            >
-              Sair
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Content */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Meus Livros</h2>
-          <button
-            onClick={() => setShowModal(true)}
-            className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors"
-          >
-            + Novo Livro
+    <div className="min-h-screen flex bg-[#0F172A]">
+      {/* Sidebar */}
+      <aside className="w-64 border-r border-slate-800 bg-slate-900/50 p-6 flex flex-col">
+        <h1 className="text-xl font-bold text-white mb-8 tracking-tight">Manuscry</h1>
+        <nav className="space-y-1 flex-1">
+          <button className="w-full text-left px-3 py-2 rounded-lg bg-[#1E3A8A]/20 text-[#93C5FD] text-sm font-medium">
+            Meus Livros
           </button>
+          <button className="w-full text-left px-3 py-2 rounded-lg text-slate-400 hover:text-slate-300 hover:bg-slate-800/50 text-sm transition-colors">
+            Configurações
+          </button>
+        </nav>
+        <div className="text-xs text-slate-500 mt-auto pt-4 border-t border-slate-800">
+          Plano Trial &middot; 14 dias
         </div>
+      </aside>
 
-        {loading ? (
-          <div className="text-center py-12 text-gray-500">Carregando...</div>
-        ) : projects.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
-            <div className="text-4xl mb-4">&#128218;</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Nenhum livro ainda
-            </h3>
-            <p className="text-gray-500 mb-4">
-              Comece sua jornada como autor publicado
-            </p>
-            <button
-              onClick={() => setShowModal(true)}
-              className="bg-purple-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors"
-            >
-              Criar Meu Primeiro Livro
-            </button>
+      {/* Main */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <header className="border-b border-slate-800 px-8 py-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-white">Meus Livros</h2>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-slate-400">{user?.email}</span>
+            <Button variant="ghost" size="sm" onClick={signOut} className="text-slate-400 hover:text-white">
+              Sair
+            </Button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projects.map((project) => (
-              <button
-                key={project.id}
-                onClick={() => navigate(`/projects/${project.id}`)}
-                className="bg-white rounded-xl border border-gray-200 p-5 text-left hover:border-purple-300 hover:shadow-md transition-all"
-              >
-                <h3 className="font-semibold text-gray-900 mb-1">
-                  {project.name}
-                </h3>
-                <p className="text-sm text-gray-500 mb-3">
-                  {project.genre || 'Gênero não definido'} &middot;{' '}
-                  {project.market === 'pt-br' ? 'PT-BR' : 'EN'}
-                </p>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-gray-100 rounded-full h-2">
-                    <div
-                      className="bg-purple-500 h-2 rounded-full transition-all"
-                      style={{
-                        width: `${((project.phases_completed?.length || 0) / 6) * 100}%`,
-                      }}
+        </header>
+
+        {/* Content */}
+        <main className="flex-1 p-8">
+          <div className="flex items-center justify-between mb-6">
+            <p className="text-slate-400 text-sm">
+              {projects.length === 0 ? 'Nenhum livro ainda' : `${projects.length} projeto${projects.length > 1 ? 's' : ''}`}
+            </p>
+            <Button onClick={() => setModalOpen(true)} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-medium">
+              + Novo Livro
+            </Button>
+            <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+              <DialogContent className="bg-slate-900 border-slate-700 text-white">
+                <DialogHeader>
+                  <DialogTitle>Novo Livro</DialogTitle>
+                </DialogHeader>
+                {error && (
+                  <div className="bg-red-900/30 border border-red-800 text-red-300 text-sm p-3 rounded-lg">
+                    {error}
+                  </div>
+                )}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Título do projeto</Label>
+                    <Input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Ex: Meu Primeiro Romance"
+                      className="bg-slate-800 border-slate-600 text-white"
                     />
                   </div>
-                  <span className="text-xs text-gray-500">
-                    Fase {project.current_phase} — {PHASE_LABELS[project.current_phase]}
-                  </span>
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Tipo</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        type="button"
+                        variant={genreMode === 'fiction' ? 'default' : 'outline'}
+                        onClick={() => { setGenreMode('fiction'); setGenre(''); }}
+                        className={genreMode === 'fiction' ? 'bg-[#1E3A8A] hover:bg-[#1E40AF]' : 'border-slate-600 text-slate-300'}
+                      >
+                        Ficção
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={genreMode === 'nonfiction' ? 'default' : 'outline'}
+                        onClick={() => { setGenreMode('nonfiction'); setGenre(''); }}
+                        className={genreMode === 'nonfiction' ? 'bg-[#1E3A8A] hover:bg-[#1E40AF]' : 'border-slate-600 text-slate-300'}
+                      >
+                        Não-ficção
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Gênero</Label>
+                    <Select value={genre} onValueChange={(v) => setGenre(v ?? '')}>
+                      <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
+                        <SelectValue placeholder="Selecione um gênero" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-slate-600">
+                        {genres.map((g) => (
+                          <SelectItem key={g} value={g} className="text-white hover:bg-slate-700">
+                            {g}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Mercado</Label>
+                    <Select value={market} onValueChange={(v) => { if (v) setMarket(v as 'pt-br' | 'en'); }}>
+                      <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-slate-600">
+                        <SelectItem value="pt-br" className="text-white">Português (Amazon.com.br)</SelectItem>
+                        <SelectItem value="en" className="text-white">English (Amazon.com)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setModalOpen(false)}
+                      className="flex-1 border-slate-600 text-slate-300"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={handleCreate}
+                      disabled={creating}
+                      className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-900 font-medium"
+                    >
+                      {creating ? 'Criando...' : 'Criar Livro'}
+                    </Button>
+                  </div>
                 </div>
-              </button>
-            ))}
+              </DialogContent>
+            </Dialog>
           </div>
-        )}
-      </main>
 
-      {showModal && (
-        <NewProjectModal onClose={() => setShowModal(false)} />
-      )}
+          {loading ? (
+            <div className="text-center py-12 text-slate-500">Carregando...</div>
+          ) : projects.length === 0 ? (
+            <Card className="border-slate-700 bg-slate-900/50 text-center py-16">
+              <CardContent>
+                <div className="text-5xl mb-4">&#128218;</div>
+                <h3 className="text-lg font-medium text-white mb-2">Comece sua jornada</h3>
+                <p className="text-slate-400 mb-6 max-w-sm mx-auto">
+                  Crie seu primeiro livro e deixe a IA guiar você do conceito à publicação
+                </p>
+                <Button onClick={() => setModalOpen(true)} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-medium">
+                  Criar Meu Primeiro Livro
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {projects.map((project) => (
+                <Card
+                  key={project.id}
+                  className="border-slate-700 bg-slate-900/50 hover:border-[#1E3A8A]/50 hover:bg-slate-800/50 transition-all cursor-pointer"
+                  onClick={() => navigate(`/projects/${project.id}`)}
+                >
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-white text-base">{project.name}</CardTitle>
+                    <div className="flex gap-2">
+                      <Badge variant="secondary" className="bg-slate-800 text-slate-300 text-xs">
+                        {project.genre || 'Sem gênero'}
+                      </Badge>
+                      <Badge variant="secondary" className="bg-slate-800 text-slate-300 text-xs">
+                        {project.market === 'pt-br' ? 'PT-BR' : 'EN'}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-slate-800 rounded-full h-1.5">
+                        <div
+                          className="bg-amber-500 h-1.5 rounded-full transition-all"
+                          style={{ width: `${((project.phases_completed?.length || 0) / 6) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-slate-500 whitespace-nowrap">
+                        Fase {project.current_phase} — {PHASE_LABELS[project.current_phase]}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 }
