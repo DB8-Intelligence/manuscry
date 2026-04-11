@@ -2,10 +2,16 @@
 nixPkgs = ["nodejs-20_x"]
 
 [phases.install]
-cmds = ["npm install -g pnpm@10", "pnpm install"]
+cmds = [
+  "npm install -g pnpm@10 --quiet",
+  "pnpm install --filter @manuscry/shared --filter @manuscry/api"
+]
 
 [phases.build]
-cmds = ["pnpm run build"]
+cmds = [
+  "pnpm --filter @manuscry/shared build",
+  "pnpm --filter @manuscry/api build"
+]
 
 [start]
-cmd = "node dist/index.js"
+cmd = "node apps/api/dist/index.js"
