@@ -1,639 +1,428 @@
-# Manuscry — Instruções para Claude Code
-
-## O Que É Este Projeto
-
-**Manuscry** (`manuscry.ai`) é um SaaS editorial completo com IA que transforma qualquer pessoa em autor publicado profissional — do conceito inicial ao arquivo pronto para impressão física e venda na Amazon KDP, IngramSpark, ACX/Audible e Findaway Voices.
-
-Diferencial absoluto: nenhum concorrente (Sudowrite, Novelcrafter, Squibler, Publishing.ai) entrega pipeline completo do conceito ao arquivo físico com dust jacket, audiobook e distribuição global. O Manuscry é o único.
+# Manuscry — CLAUDE.md
+## Instruções Permanentes para Claude Code
 
 ---
 
-## Stack Técnica — Nunca Desviar
+## IDENTIDADE DO PROJETO
 
+**Manuscry** (`manuscry.ai`) — SaaS editorial completo com IA.
+Pipeline do zero ao livro publicado: análise de mercado KDP → conceito → roteiro → escrita → capa → biografia → arquivos para Amazon KDP, IngramSpark, ACX/Audible e Findaway Voices.
+
+**Organização:** DB8-Intelligence (Douglas Bonânzza — Salvador/BA)
+**Metodologia:** Specification-first → Claude Code → deploy (igual ImobCreator)
+
+---
+
+## INFRAESTRUTURA — IDs REAIS
+
+### SUPABASE
 ```
-Frontend:    React 18 + Vite + TypeScript
-Styling:     Tailwind CSS + shadcn/ui
-State:       Zustand + TanStack Query
-Backend:     Node.js + Express (deploy Railway)
-Database:    Supabase (PostgreSQL + Storage + Auth + RLS)
-IA escrita:  Claude Sonnet claude-sonnet-4-5 via @anthropic-ai/sdk
-IA imagens:  Fal.ai Flux Pro via @fal-ai/serverless-client
-Audiobook:   ElevenLabs API
-Pagamento:   Stripe (EN) + Hotmart (PT-BR)
-Deploy:      Vercel (frontend) + Railway (backend)
-Email:       Resend
-Monorepo:    Turborepo + pnpm workspaces
+Projeto:      manuscry
+ID:           noakyceiyzqjujwewgyt
+Ref:          noakyceiyzqjujwewgyt
+Região:       sa-east-1 (São Paulo)
+Status:       ACTIVE_HEALTHY
+DB Host:      db.noakyceiyzqjujwewgyt.supabase.co
+URL:          https://noakyceiyzqjujwewgyt.supabase.co
+Organização:  inmnnifmlcdctizmzfpe
+Criado em:    2026-04-11
+```
+
+### VERCEL
+```
+Projeto:      manuscry (CRIAR no dashboard)
+Team:         DB8-Intelligence
+Team ID:      team_T2S42j3Uj2hWvjnw6b1OVrKK
+Framework:    Vite (não Next.js)
+Node:         24.x
+Branch prod:  production → manuscry.ai
+Branch dev:   main → preview automático
+vercel.json:  SPA rewrite catch-all → index.html (já criado)
+```
+
+**Projetos Vercel existentes no mesmo team (para referência):**
+```
+imob-creator-studio  → prj_HaEFpHb1MqymO89uTVmh9u1lqiby
+book-agent           → prj_e02c5fA6yCHIl01f1NLa6r2LMrdi
+nexoomnix            → prj_nnIp9hrSnwexpdGSn445k1YcXgwc
+db8-inteligence      → prj_bEP1lkft4nB7K41cRgweRmhnfqt4
+```
+
+### RAILWAY
+```
+Projeto:      manuscry (CRIAR no dashboard)
+Serviço:      manuscry-api
+Root Dir:     apps/api
+Build:        pnpm install && pnpm run build
+Start:        node dist/index.js
+Health:       /health
+Domínio:      api.manuscry.ai
+Node:         20.x
+
+Projetos Railway existentes (separados — não misturar):
+  db8-BookAgent        → BookAgent + Postgres + Redis
+  db8-api-BookAgent    → bookagent.db8intelligence.com.br
+  Evolution API        → evolution-api-production-feed.up.railway.app
 ```
 
 ---
 
-## Estrutura de Diretórios
+## VARIÁVEIS DE AMBIENTE
+
+### Vercel (frontend — apps/web)
+```
+VITE_SUPABASE_URL              = https://noakyceiyzqjujwewgyt.supabase.co
+VITE_SUPABASE_ANON_KEY         = [pegar no Supabase → Settings → API]
+VITE_API_URL                   = https://api.manuscry.ai
+VITE_APP_ENV                   = production
+```
+
+### Railway (backend — apps/api)
+```
+NODE_ENV                       = production
+PORT                           = 3001
+
+# Supabase
+SUPABASE_URL                   = https://noakyceiyzqjujwewgyt.supabase.co
+SUPABASE_ANON_KEY              = [anon key]
+SUPABASE_SERVICE_ROLE_KEY      = [service role key]
+
+# IA
+ANTHROPIC_API_KEY              = sk-ant-...
+FAL_KEY                        = ...
+
+# Audiobook (Semana 5)
+ELEVENLABS_API_KEY             = ...
+
+# Email
+RESEND_API_KEY                 = re_...
+RESEND_FROM_EMAIL              = noreply@manuscry.ai
+
+# Pagamento (Semana 7)
+STRIPE_SECRET_KEY              = sk_live_...
+STRIPE_WEBHOOK_SECRET          = whsec_...
+HOTMART_CLIENT_ID              = ...
+HOTMART_CLIENT_SECRET          = ...
+HOTMART_WEBHOOK_SECRET         = ...
+
+# CORS
+FRONTEND_URL                   = https://manuscry.ai
+CORS_ORIGINS                   = https://manuscry.ai,https://www.manuscry.ai
+```
+
+### Supabase Edge Functions
+```
+# Secrets adicionados via: supabase secrets set --project-ref noakyceiyzqjujwewgyt
+ANTHROPIC_API_KEY              = sk-ant-...
+FAL_KEY                        = ...
+```
+
+---
+
+## STACK TÉCNICA
 
 ```
-manuscry/
-├── CLAUDE.md                    ← este arquivo
-├── .env.example
+Frontend:     React 18 + Vite + TypeScript
+Styling:      Tailwind CSS + shadcn/ui
+State:        Zustand + TanStack Query
+Backend:      Node.js + Express + TypeScript
+Database:     Supabase (PostgreSQL + Storage + Auth + RLS)
+IA escrita:   Claude Sonnet claude-sonnet-4-5 via @anthropic-ai/sdk
+IA imagens:   Fal.ai Flux Pro via @fal-ai/serverless-client
+Audiobook:    ElevenLabs API
+Pagamento:    Stripe (EN) + Hotmart (PT-BR)
+Deploy FE:    Vercel — team DB8-Intelligence
+Deploy BE:    Railway — projeto manuscry separado
+Email:        Resend
+Monorepo:     Turborepo + pnpm workspaces
+```
+
+---
+
+## ESTRUTURA DE DIRETÓRIOS
+
+```
+manuscry/                           ← C:\Users\Douglas\manuscry
+├── CLAUDE.md                       ← este arquivo
+├── vercel.json                     ← SPA rewrite (já criado)
+├── .gitignore
+├── package.json                    ← monorepo root
 ├── turbo.json
-├── package.json
+├── pnpm-workspace.yaml
+│
 ├── apps/
-│   ├── web/                     # Frontend React/Vite
+│   ├── web/                        ← Frontend React/Vite → Vercel
 │   │   ├── src/
 │   │   │   ├── pages/
 │   │   │   │   ├── (auth)/
-│   │   │   │   │   ├── login.tsx
-│   │   │   │   │   └── register.tsx
+│   │   │   │   │   ├── Auth.tsx           ← login + signup + OAuth
+│   │   │   │   │   └── AuthCallback.tsx   ← /auth/callback (OAuth redirect)
 │   │   │   │   ├── dashboard/
-│   │   │   │   │   └── index.tsx
-│   │   │   │   ├── projects/
-│   │   │   │   │   ├── index.tsx        # Lista de projetos
-│   │   │   │   │   ├── new.tsx          # Criar novo projeto
-│   │   │   │   │   └── [id]/
-│   │   │   │   │       ├── index.tsx    # Visão geral do projeto
-│   │   │   │   │       ├── phase-0.tsx  # Market Analyst
-│   │   │   │   │       ├── phase-1.tsx  # Theme Selector
-│   │   │   │   │       ├── phase-2.tsx  # Concept Builder
-│   │   │   │   │       ├── phase-3.tsx  # Narrative Architect
-│   │   │   │   │       ├── phase-4.tsx  # Writing Engine
-│   │   │   │   │       └── phase-5.tsx  # Production Studio
-│   │   │   │   └── settings/
+│   │   │   │   │   └── Dashboard.tsx
+│   │   │   │   └── projects/
+│   │   │   │       ├── index.tsx          ← lista de projetos
+│   │   │   │       ├── new.tsx            ← criar projeto
+│   │   │   │       └── [id]/
+│   │   │   │           ├── index.tsx      ← visão geral
+│   │   │   │           ├── phase-0.tsx    ← Market Analyst
+│   │   │   │           ├── phase-1.tsx    ← Theme Selector
+│   │   │   │           ├── phase-2.tsx    ← Concept Builder
+│   │   │   │           ├── phase-3.tsx    ← Narrative Architect
+│   │   │   │           ├── phase-4.tsx    ← Writing Engine
+│   │   │   │           └── phase-5.tsx    ← Production Studio
 │   │   │   ├── components/
+│   │   │   │   ├── app/
+│   │   │   │   │   ├── Sidebar.tsx
+│   │   │   │   │   ├── Header.tsx
+│   │   │   │   │   └── ProtectedRoute.tsx
 │   │   │   │   ├── pipeline/
-│   │   │   │   │   ├── PhaseCard.tsx
-│   │   │   │   │   ├── PhaseProgress.tsx
-│   │   │   │   │   └── PipelineNav.tsx
 │   │   │   │   ├── editor/
-│   │   │   │   │   ├── ChapterEditor.tsx    # Tiptap editor
-│   │   │   │   │   ├── WordCounter.tsx
-│   │   │   │   │   └── StreamingText.tsx    # SSE streaming
 │   │   │   │   ├── covers/
-│   │   │   │   │   ├── CoverGallery.tsx     # 5 variações
-│   │   │   │   │   ├── CoverCard.tsx
-│   │   │   │   │   └── CoverComposer.tsx    # Adiciona texto
-│   │   │   │   ├── biography/
-│   │   │   │   │   ├── AuthorForm.tsx
-│   │   │   │   │   └── BiographyPreview.tsx
-│   │   │   │   └── ui/                      # shadcn components
+│   │   │   │   └── ui/                    ← shadcn components
+│   │   │   ├── hooks/
+│   │   │   │   ├── useAuth.ts
+│   │   │   │   ├── useProjects.ts
+│   │   │   │   └── usePipeline.ts
+│   │   │   ├── lib/
+│   │   │   │   ├── supabase.ts            ← createClient(VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)
+│   │   │   │   └── api.ts                 ← axios/fetch para manuscry-api
 │   │   │   ├── stores/
-│   │   │   │   ├── projectStore.ts
-│   │   │   │   ├── pipelineStore.ts
-│   │   │   │   └── userStore.ts
-│   │   │   └── lib/
-│   │   │       ├── api.ts
-│   │   │       ├── claude.ts
-│   │   │       └── supabase.ts
-│   └── api/                     # Backend Node/Express
+│   │   │   │   └── projectStore.ts
+│   │   │   ├── types/
+│   │   │   └── App.tsx
+│   │   ├── .env.example
+│   │   └── package.json
+│   │
+│   └── api/                        ← Backend Node/Express → Railway
 │       ├── src/
+│       │   ├── index.ts             ← Express server
+│       │   ├── middleware/
+│       │   │   ├── auth.ts          ← JWT via Supabase
+│       │   │   └── rateLimit.ts
 │       │   ├── routes/
 │       │   │   ├── auth.ts
 │       │   │   ├── projects.ts
-│       │   │   ├── pipeline/
-│       │   │   │   ├── phase0.ts    # Market Analyst
-│       │   │   │   ├── phase1.ts    # Theme Selector
-│       │   │   │   ├── phase2.ts    # Concept Builder
-│       │   │   │   ├── phase3.ts    # Narrative Architect
-│       │   │   │   └── phase4.ts    # Chapter Writer
+│       │   │   ├── pipeline.ts      ← fases 0-4 + chapter streaming SSE
 │       │   │   ├── covers.ts
 │       │   │   ├── biography.ts
 │       │   │   ├── production.ts
 │       │   │   └── billing.ts
-│       │   ├── services/
-│       │   │   ├── claude.service.ts
-│       │   │   ├── fal.service.ts
-│       │   │   ├── elevenlabs.service.ts
-│       │   │   ├── formatter.service.ts
-│       │   │   └── prompts/             # Prompts das Skills
-│       │   │       ├── phase0.prompt.ts
-│       │   │       ├── phase1.prompt.ts
-│       │   │       ├── phase2.prompt.ts
-│       │   │       ├── phase3.prompt.ts
-│       │   │       ├── phase4.prompt.ts
-│       │   │       ├── covers.prompt.ts
-│       │   │       └── biography.prompt.ts
-│       │   └── middleware/
-│       │       ├── auth.ts
-│       │       ├── rateLimit.ts
-│       │       └── planGuard.ts
+│       │   └── services/
+│       │       ├── claude.service.ts
+│       │       ├── fal.service.ts
+│       │       ├── supabase.service.ts
+│       │       └── prompts/
+│       │           └── pipeline.prompts.ts
+│       ├── railway.json
+│       ├── nixpacks.toml
+│       ├── .env.example
+│       └── package.json
+│
 └── packages/
     └── shared/
-        ├── types/
-        │   ├── project.ts
-        │   ├── pipeline.ts
-        │   └── billing.ts
-        └── constants/
-            └── plans.ts
+        └── src/
+            └── index.ts             ← tipos compartilhados (Project, Chapter, Plan...)
 ```
 
 ---
 
-## Banco de Dados — Schema Completo
+## SUPABASE — PADRÕES (igual ImobCreator)
 
-```sql
--- Executar no Supabase SQL Editor na ordem abaixo
+### Migrations
+- **1 migration por feature** — nunca recriar tabelas existentes
+- Nome: `YYYYMMDDHHMMSS_nome_descritivo`
+- Ordem importa — migrations são incrementais
+- RLS ativo em todas as tabelas desde a migration 001
 
--- 1. Extensões
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- 2. Tabela de usuários (estende auth.users do Supabase)
-CREATE TABLE public.users (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  email TEXT NOT NULL,
-  full_name TEXT,
-  plan TEXT DEFAULT 'trial' CHECK (plan IN ('trial','starter','pro','publisher')),
-  market TEXT DEFAULT 'pt-br' CHECK (market IN ('pt-br','en','both')),
-  books_this_month INT DEFAULT 0,
-  books_limit INT DEFAULT 1,
-  trial_ends_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '14 days',
-  stripe_customer_id TEXT,
-  hotmart_subscriber_id TEXT,
-  author_profile JSONB DEFAULT '{
-    "display_name": null,
-    "pen_name": null,
-    "city": null,
-    "state": null,
-    "country": "Brasil",
-    "profession": null,
-    "education": [],
-    "expertise": [],
-    "previous_books": [],
-    "awards": [],
-    "website": null,
-    "instagram": null,
-    "twitter": null,
-    "tiktok": null,
-    "email_public": null,
-    "photo_url": null,
-    "photo_approved": false,
-    "personal_detail": null,
-    "why_this_book": null
-  }',
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 3. Projetos (um por livro)
-CREATE TABLE public.projects (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  market TEXT DEFAULT 'pt-br' CHECK (market IN ('pt-br','en')),
-  genre TEXT,
-  genre_mode TEXT CHECK (genre_mode IN ('fiction','nonfiction')),
-  status TEXT DEFAULT 'active' CHECK (status IN ('active','paused','published','archived')),
-  current_phase INT DEFAULT 0,
-  phases_completed INT[] DEFAULT '{}',
-
-  -- Dados de cada fase (JSON persistido)
-  phase_0_data JSONB,  -- market analysis
-  phase_1_data JSONB,  -- theme + UBA + profile
-  phase_2_data JSONB,  -- book bible completo
-  phase_3_data JSONB,  -- narrative outline + chapter map
-  phase_4_data JSONB,  -- writing progress
-  phase_5_data JSONB,  -- production assets
-
-  -- Métricas pós-publicação (usuário preenche)
-  asin TEXT,
-  isbn_ebook TEXT,
-  isbn_print TEXT,
-  bsr_week1 INT,
-  reviews_month1 INT,
-  revenue_month1 DECIMAL(10,2),
-
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 4. Capítulos
-CREATE TABLE public.chapters (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
-  chapter_number INT NOT NULL,
-  title TEXT,
-  content TEXT DEFAULT '',
-  word_count INT DEFAULT 0,
-  tension_level INT CHECK (tension_level BETWEEN 1 AND 10),
-  status TEXT DEFAULT 'draft' CHECK (status IN ('draft','humanized','approved')),
-  outline JSONB,           -- ficha do narrative-architect
-  characters_present TEXT[],
-  key_events TEXT[],
-  planted_seeds TEXT[],
-  final_hook TEXT,
-  version INT DEFAULT 1,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(project_id, chapter_number)
-);
-
--- 5. Assets de produção
-CREATE TABLE public.production_assets (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
-  asset_type TEXT NOT NULL,
-  -- Tipos: cover_prompt | cover_image | epub | pdf_interior
-  --        pdf_cover_kdp_paper | pdf_cover_kdp_hard
-  --        pdf_interior_is | dust_jacket | audiobook_script
-  --        biography | acknowledgments
-  platform TEXT CHECK (platform IN ('kdp','ingramspark','acx','findaway','internal')),
-  format TEXT CHECK (format IN ('ebook','paperback','hardcover','audiobook','all')),
-  file_url TEXT,
-  file_size_bytes BIGINT,
-  metadata JSONB,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending','generating','ready','error')),
-  error_message TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 6. Assets de capa
-CREATE TABLE public.cover_assets (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
-  variation_name TEXT NOT NULL,
-  -- Valores: champion | differentiated | emotional | minimal | cinematic
-  prompt_used TEXT,
-  image_url TEXT,
-  score DECIMAL(3,1),
-  scorecard JSONB,
-  market_analysis JSONB,
-  is_recommended BOOLEAN DEFAULT FALSE,
-  is_selected BOOLEAN DEFAULT FALSE,
-  composed_versions JSONB,  -- URLs com tipografia adicionada
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 7. Biografias do autor por projeto
-CREATE TABLE public.author_biographies (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES public.users(id),
-  project_id UUID NOT NULL REFERENCES public.projects(id),
-  market TEXT,
-  ultra_short TEXT,    -- 30 palavras
-  short_bio TEXT,      -- 80 palavras
-  medium_bio TEXT,     -- 150 palavras
-  long_bio TEXT,       -- 250 palavras
-  author_note TEXT,    -- 300-500 palavras (1ª pessoa)
-  bio_kdp TEXT,
-  bio_ingramspark TEXT,
-  bio_acx TEXT,
-  bio_dust_jacket TEXT,
-  acknowledgments_template TEXT,
-  approved BOOLEAN DEFAULT FALSE,
-  version INT DEFAULT 1,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 8. Dados de aprendizado (retroalimenta o sistema)
-CREATE TABLE public.learning_data (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES public.users(id),
-  project_id UUID REFERENCES public.projects(id),
-  genre TEXT,
-  subgenre TEXT,
-  market TEXT,
-  theme TEXT,
-  opportunity_score DECIMAL(3,1),
-  keywords_used TEXT[],
-  actual_bsr INT,
-  actual_revenue DECIMAL(10,2),
-  what_worked TEXT,
-  what_didnt TEXT,
-  recorded_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 9. Índices de performance
-CREATE INDEX idx_projects_user ON public.projects(user_id);
-CREATE INDEX idx_projects_status ON public.projects(status);
-CREATE INDEX idx_chapters_project ON public.chapters(project_id, chapter_number);
-CREATE INDEX idx_assets_project ON public.production_assets(project_id, asset_type);
-CREATE INDEX idx_covers_project ON public.cover_assets(project_id);
-CREATE INDEX idx_learning_user ON public.learning_data(user_id, genre);
-
--- 10. RLS (Row Level Security) — cada usuário só vê seus dados
-ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.chapters ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.production_assets ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.cover_assets ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.author_biographies ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "users_own" ON public.users
-  FOR ALL USING (auth.uid() = id);
-
-CREATE POLICY "projects_own" ON public.projects
-  FOR ALL USING (auth.uid() = user_id);
-
-CREATE POLICY "chapters_own" ON public.chapters
-  FOR ALL USING (
-    auth.uid() = (SELECT user_id FROM public.projects WHERE id = project_id)
-  );
-
-CREATE POLICY "assets_own" ON public.production_assets
-  FOR ALL USING (
-    auth.uid() = (SELECT user_id FROM public.projects WHERE id = project_id)
-  );
-
-CREATE POLICY "covers_own" ON public.cover_assets
-  FOR ALL USING (
-    auth.uid() = (SELECT user_id FROM public.projects WHERE id = project_id)
-  );
-
-CREATE POLICY "bios_own" ON public.author_biographies
-  FOR ALL USING (auth.uid() = user_id);
-
--- 11. Trigger para updated_at automático
-CREATE OR REPLACE FUNCTION update_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER projects_updated_at BEFORE UPDATE ON public.projects
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER chapters_updated_at BEFORE UPDATE ON public.chapters
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+### Edge Functions
+```
+verify_jwt: true   → funções que o usuário autenticado chama (IA, geração)
+verify_jwt: false  → webhooks externos (pagamento, callbacks)
 ```
 
----
-
-## Planos e Limites
-
-```typescript
-// packages/shared/constants/plans.ts
-export const PLANS = {
-  trial: {
-    books_limit: 1,
-    formats: ['ebook', 'paperback_kdp'],
-    markets: ['pt-br'],
-    audiobook: false,
-    ingramspark: false,
-    dust_jacket: false,
-    days: 14,
-  },
-  starter: {
-    price_brl_cents: 9700,   // R$97/mês
-    price_usd_cents: 2700,   // $27/mês
-    books_limit: 1,
-    formats: ['ebook', 'paperback_kdp'],
-    markets: ['pt-br'],      // ou 'en', escolhe 1
-    audiobook: false,
-    ingramspark: false,
-    dust_jacket: false,
-  },
-  pro: {
-    price_brl_cents: 19700,  // R$197/mês
-    price_usd_cents: 5700,   // $57/mês
-    books_limit: 3,
-    formats: ['ebook', 'paperback_kdp', 'hardcover_kdp',
-              'paperback_is', 'hardcover_is'],
-    markets: ['pt-br', 'en'],
-    audiobook: true,
-    ingramspark: true,
-    dust_jacket: true,
-  },
-  publisher: {
-    price_brl_cents: 49700,  // R$497/mês
-    price_usd_cents: 14700,  // $147/mês
-    books_limit: -1,         // ilimitado
-    formats: 'all',
-    markets: ['pt-br', 'en'],
-    audiobook: true,
-    ingramspark: true,
-    dust_jacket: true,
-    white_label: true,
-    api_access: true,
-    pen_names: -1,           // ilimitado
-  },
-} as const;
-```
-
----
-
-## Pipeline — 5 Fases + Módulos
-
-```
-FASE 0  kdp-market-analyst      Análise de mercado KDP + score de oportunidade
-FASE 1  book-theme-selector     Seleção e validação do tema + UBA
-FASE 2  book-concept-builder    DNA completo do livro (Book Bible)
-FASE 3  narrative-architect     Roteiro capítulo a capítulo + mapa de tensão
-FASE 4a chapter-writer          Escrita com streaming + humanizador integrado
-FASE 4b text-humanizer          Revisão do manuscrito completo
-FASE 4c audiobook-adapter       Script para ElevenLabs/ACX (opcional)
-FASE 5a cover-generator         5 variações de capa + recomendação com score
-FASE 5b author-biography        Pacote biográfico completo por plataforma
-FASE 5c book-designer           Specs técnicas + dust jacket + tipografia
-FASE 5d print-production        Pacotes de arquivo: epub/PDF KDP/IS/audiobook
-FASE 5e kdp-metadata-optimizer  Keywords + categorias + HTML description
-```
-
-**Regra crítica:** Book Bible (Fase 2) deve ser injetado em TODA chamada de escrita. Sem contexto persistido, personagens mudam de nome e o livro perde consistência — o erro fatal de todos os concorrentes.
-
----
-
-## Serviços de IA — Implementação
-
-### Claude (escrita + análise)
-
-```typescript
-// apps/api/src/services/claude.service.ts
-import Anthropic from '@anthropic-ai/sdk';
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-const MODEL = 'claude-sonnet-4-5';
-
-// Para análise e geração estruturada (JSON)
-export async function generateStructured<T>(
-  system: string,
-  user: string,
-  maxTokens = 4096
-): Promise<T> {
-  const res = await client.messages.create({
-    model: MODEL,
-    max_tokens: maxTokens,
-    system,
-    messages: [{ role: 'user', content: user }],
-  });
-  const text = res.content[0].type === 'text' ? res.content[0].text : '';
-  return JSON.parse(text.replace(/```json\n?|\n?```/g, '').trim());
-}
-
-// Para escrita de capítulos (streaming SSE)
-export async function streamChapter(
-  system: string,
-  user: string,
-  onChunk: (text: string) => void,
-  onDone: () => void
-): Promise<void> {
-  const stream = client.messages.stream({
-    model: MODEL,
-    max_tokens: 8096,
-    system,
-    messages: [{ role: 'user', content: user }],
-  });
-  for await (const chunk of stream) {
-    if (
-      chunk.type === 'content_block_delta' &&
-      chunk.delta.type === 'text_delta'
-    ) {
-      onChunk(chunk.delta.text);
-    }
-  }
-  onDone();
-}
-```
-
-### Fal.ai (capas)
-
-```typescript
-// apps/api/src/services/fal.service.ts
-import * as fal from '@fal-ai/serverless-client';
-fal.config({ credentials: process.env.FAL_KEY });
-
-export async function generateCoverVariations(prompts: string[]) {
-  const results = await Promise.all(
-    prompts.map(prompt =>
-      fal.subscribe('fal-ai/flux-pro', {
-        input: {
-          prompt,
-          image_size: { width: 1600, height: 2400 },
-          num_inference_steps: 28,
-          guidance_scale: 3.5,
-          num_images: 1,
-        },
-      })
-    )
-  );
-  return results.map((r: any) => r.images[0].url);
-}
-```
-
----
-
-## Variáveis de Ambiente
-
-```env
-# apps/api/.env (nunca commitar — apenas .env.example)
-
-NODE_ENV=development
-PORT=3001
-
-# Anthropic
-ANTHROPIC_API_KEY=sk-ant-...
-
-# Supabase
-SUPABASE_URL=https://[project-ref].supabase.co
-SUPABASE_ANON_KEY=eyJ...
-SUPABASE_SERVICE_ROLE_KEY=eyJ...
-
-# Fal.ai (imagens de capa)
-FAL_KEY=...
-
-# ElevenLabs (audiobook)
-ELEVENLABS_API_KEY=...
-
-# Stripe (pagamento EN)
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-
-# Hotmart (pagamento PT-BR)
-HOTMART_CLIENT_ID=...
-HOTMART_CLIENT_SECRET=...
-HOTMART_WEBHOOK_SECRET=...
-
-# Resend (email transacional)
-RESEND_API_KEY=re_...
-
-# URLs
-FRONTEND_URL=http://localhost:5173
-API_URL=http://localhost:3001
-CORS_ORIGINS=http://localhost:5173
-```
-
----
-
-## Ordem de Implementação — 8 Semanas
-
-```
-SEMANA 1 — Fundação
-  □ Turborepo + pnpm workspaces setup
-  □ Supabase: criar projeto + executar schema SQL
-  □ Backend: Express + rotas base + middleware auth
-  □ Frontend: React + Vite + Tailwind + shadcn init
-  □ Autenticação: Supabase Auth (email + senha)
-  □ CRUD básico de projetos
-
-SEMANA 2 — Integração IA Base
-  □ Claude service com streaming
-  □ Endpoint POST /api/generate (fase + contexto → output)
-  □ Pipeline UI: 5 cards de fase com estado visual
-  □ Auto-save: debounce 30s para todos os campos
-  □ Persistência JSON de estado por fase no Supabase
-
-SEMANA 3 — Fases 0, 1 e 2
-  □ Phase 0: Market Analyst (Claude + web search tool)
-  □ Phase 1: Theme Selector + scorecard visual
-  □ Phase 2: Concept Builder → Book Bible
-  □ Validação de completude antes de avançar de fase
-
-SEMANA 4 — Fase 3 e Editor
-  □ Phase 3: Narrative Architect + mapa de tensão
-  □ Tiptap editor com word counter em tempo real
-  □ Chapter list com drag-and-drop para reordenar
-
-SEMANA 5 — Fase 4 (Escrita)
-  □ Chapter Writer com SSE streaming
-  □ Text Humanizer (revisão do manuscrito)
-  □ Controle de versão de capítulos
-  □ Audiobook Adapter (script ElevenLabs)
-
-SEMANA 6 — Fase 5 (Produção)
-  □ Cover Generator: 5 variações via Fal.ai
-  □ CoverGallery com scorecard e recomendação
-  □ Author Biography: formulário + geração
-  □ Geração EPUB via Pandoc
-  □ Geração PDF interior via Puppeteer
-
-SEMANA 7 — Billing + Produção Final
-  □ Stripe checkout (planos EN)
-  □ Hotmart webhook (planos PT-BR)
-  □ Plan guard middleware
-  □ Metadata optimizer (keywords KDP)
-  □ Download de arquivos (Supabase Storage)
-  □ Checklist de publicação por plataforma
-
-SEMANA 8 — Polish + Launch
-  □ Onboarding flow (3 steps)
-  □ Email transacional (Resend)
-  □ Deploy: Vercel + Railway
-  □ Testes com beta fechado (20 usuários)
-  □ Monitoring: Sentry + Vercel Analytics
-```
-
----
-
-## Comando de Início
-
+### Padrão de deploy de função
 ```bash
-# No terminal, dentro de C:\Users\Douglas\manuscry
+supabase functions deploy nome-da-funcao --project-ref noakyceiyzqjujwewgyt
+```
 
-# 1. Criar monorepo
-npx create-turbo@latest . --package-manager pnpm
+---
 
-# 2. Instalar dependências do workspace
+## VERCEL — PADRÕES (igual ImobCreator)
+
+### Branches
+```
+main        → preview automático (cada push = URL única de preview)
+production  → ao vivo em manuscry.ai (merge de main → production)
+```
+
+**Regra:** nunca push direto em production. Sempre main → review → merge.
+
+### vercel.json (SPA rewrite — obrigatório para React SPA)
+Já criado. Sem ele, refresh na rota causa 404.
+
+### Variáveis de ambiente
+Adicionar no Vercel Dashboard → Project → Settings → Environment Variables:
+```
+VITE_SUPABASE_URL      → todos os ambientes
+VITE_SUPABASE_ANON_KEY → todos os ambientes
+VITE_API_URL           → production: https://api.manuscry.ai
+                         preview: https://manuscry-api-dev.up.railway.app
+```
+
+---
+
+## RAILWAY — PADRÕES
+
+### Configuração do serviço manuscry-api
+```json
+{
+  "build": { "builder": "NIXPACKS", "buildCommand": "pnpm install && pnpm run build" },
+  "deploy": { "startCommand": "node dist/index.js", "healthcheckPath": "/health" }
+}
+```
+
+### Domínio customizado
+```
+api.manuscry.ai → CNAME para domínio gerado pelo Railway
+GoDaddy DNS:
+  Tipo: CNAME
+  Nome: api
+  Valor: [domínio.up.railway.app]
+```
+
+---
+
+## PADRÃO DE COMMITS (igual ImobCreator)
+
+```
+feat: [módulo] — descrição curta
+
+Migration: nome_da_migration
+Edge Function: nome-funcao (o que faz)
+Types: arquivo.ts (interfaces criadas)
+Hooks: useNomeHook (métodos expostos)
+Páginas: NomePagina.tsx (/rota): descrição
+Componentes: NomeComponente (funcionalidade)
+Routes: +N rotas (lista)
+App.tsx: rotas adicionadas
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+```
+
+**Regra:** cada feature entrega tudo junto em 1 commit — migration + tipos + hooks + páginas + rotas. Nunca pela metade.
+
+---
+
+## PIPELINE — 5 FASES + MÓDULOS
+
+```
+FASE 0  kdp-market-analyst       Análise KDP + score de oportunidade
+FASE 1  book-theme-selector      Seleção + validação + UBA
+FASE 2  book-concept-builder     Book Bible completo (ficção/não-ficção)
+FASE 3  narrative-architect      Roteiro cap a cap + mapa de tensão
+FASE 4a chapter-writer           Escrita SSE streaming + humanizador
+FASE 4b text-humanizer           Revisão manuscrito completo
+FASE 4c audiobook-adapter        Script ElevenLabs/ACX (Semana 5)
+FASE 5a cover-generator          5 variações + score + Fal.ai
+FASE 5b author-biography         Pacote biográfico por plataforma
+FASE 5c book-designer            Specs + dust jacket + tipografia
+FASE 5d print-production         EPUB/PDF KDP/IS/audiobook
+FASE 5e kdp-metadata-optimizer   Keywords + categorias + HTML desc
+```
+
+**Regra crítica:** Book Bible (Fase 2) injetado em TODA chamada de escrita.
+Sem contexto persistido = personagens inconsistentes = produto com defeito.
+
+---
+
+## PLANOS
+
+```typescript
+trial:     14 dias, 1 livro, ebook + paperback KDP, PT-BR
+starter:   R$97/mês  | $27/mês — 1 livro/mês
+pro:       R$197/mês | $57/mês — 3 livros/mês, todos os formatos
+publisher: R$497/mês | $147/mês — ilimitado, white label
+```
+
+---
+
+## ROADMAP DE IMPLEMENTAÇÃO
+
+```
+SEMANA 1: Monorepo + Supabase schema + Auth + Dashboard + Fase 0
+SEMANA 2: Fases 1, 2, 3 completas
+SEMANA 3: Fase 4 (escrita com streaming SSE)
+SEMANA 4: Fase 5a covers + 5b biography
+SEMANA 5: Fase 5c/5d/5e produção + audiobook
+SEMANA 6: EPUB/PDF generation (Pandoc + Puppeteer)
+SEMANA 7: Billing Stripe + Hotmart
+SEMANA 8: Polish + onboarding + deploy + beta
+```
+
+---
+
+## MCPs CONECTADOS
+
+```
+Supabase MCP → projeto: manuscry (noakyceiyzqjujwewgyt)
+Vercel MCP   → team: DB8-Intelligence (team_T2S42j3Uj2hWvjnw6b1OVrKK)
+              projeto: manuscry (ID gerado após criar no dashboard)
+n8n MCP      → automacao.db8intelligence.com.br (quando necessário)
+```
+
+---
+
+## COMANDOS INICIAIS
+
+```powershell
+# 1. Na pasta C:\Users\Douglas\manuscry — instalar deps
 pnpm install
 
-# 3. Adicionar deps do backend
-cd apps/api
-pnpm add express @anthropic-ai/sdk @supabase/supabase-js \
-  @fal-ai/serverless-client cors dotenv helmet express-rate-limit
-
-pnpm add -D typescript @types/express @types/node tsx nodemon
-
-# 4. Adicionar deps do frontend
-cd ../web
-pnpm add react-router-dom zustand @tanstack/react-query \
-  @supabase/supabase-js @tiptap/react @tiptap/starter-kit
-
-# 5. Inicializar shadcn
-npx shadcn@latest init
-
-# 6. Rodar tudo
-cd ../..
+# 2. Rodar dev (frontend + api juntos)
 pnpm dev
+
+# 3. Deploy edge function Supabase
+supabase functions deploy nome-funcao --project-ref noakyceiyzqjujwewgyt
+
+# 4. Ver logs Railway
+railway logs --service manuscry-api
+
+# 5. Push para preview (Vercel)
+git push origin main
+
+# 6. Deploy produção
+git checkout production && git merge main && git push origin production
+```
+
+---
+
+## CRIAR PROJETO VERCEL — PASSO A PASSO
+
+Como o MCP do Vercel não cria projetos, fazer manualmente:
+
+```
+1. vercel.com → DB8-Intelligence team → Add New Project
+2. Import Git Repository → DB8-Intelligence/manuscry
+3. Framework: Vite
+4. Root Directory: apps/web
+5. Node version: 24.x
+6. Build Command: pnpm run build
+7. Output Directory: dist
+8. Adicionar variáveis de ambiente (VITE_SUPABASE_URL etc.)
+9. Deploy
+10. Settings → Domains → adicionar manuscry.ai
+11. Settings → Git → Production Branch: production
+```
+
+## CRIAR PROJETO RAILWAY — PASSO A PASSO
+
+```
+1. railway.app → New Project
+2. Deploy from GitHub → DB8-Intelligence/manuscry
+3. Service name: manuscry-api
+4. Root Directory: apps/api
+5. Adicionar variáveis de ambiente
+6. Settings → Networking → Generate Domain
+7. Settings → Custom Domain → api.manuscry.ai
+8. GoDaddy DNS → CNAME api → [domínio.up.railway.app]
 ```
