@@ -69,6 +69,24 @@ projectsRouter.get('/:id', async (req: AuthenticatedRequest, res) => {
   res.json({ project: data });
 });
 
+// DELETE /api/projects/:id — archive project (soft delete)
+projectsRouter.delete('/:id', async (req: AuthenticatedRequest, res) => {
+  const { data, error } = await supabaseAdmin
+    .from('projects')
+    .update({ status: 'archived' })
+    .eq('id', req.params.id)
+    .eq('user_id', req.userId!)
+    .select('id, status')
+    .single();
+
+  if (error) {
+    res.status(error.code === 'PGRST116' ? 404 : 500).json({ error: error.message });
+    return;
+  }
+
+  res.json({ project: data });
+});
+
 // PATCH /api/projects/:id — update project
 projectsRouter.patch('/:id', async (req: AuthenticatedRequest, res) => {
   const allowedFields = [

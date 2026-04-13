@@ -85,10 +85,11 @@ body {
     --sidebar-ring: oklch(0.556 0 0);
   }
   * {
-    @apply border-border outline-ring/50;
+    border-color: hsl(var(--border, 220 13% 91%));
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: #0F172A;
+    color: #F8FAFC;
   }
   html {
     @apply font-sans;
