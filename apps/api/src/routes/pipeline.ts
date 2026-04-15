@@ -1,12 +1,48 @@
 import { Router } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { supabaseAdmin } from '../services/supabase.js';
-import { generateStructured } from '../services/claude.service.js';
+import { generateStructured, streamChapter } from '../services/claude.service.js';
 import { buildPhase0Prompt } from '../services/prompts/phase0.prompt.js';
 import { buildPhase1Prompt } from '../services/prompts/phase1.prompt.js';
 import { buildPhase2Prompt } from '../services/prompts/phase2.prompt.js';
 import { buildPhase3Prompt } from '../services/prompts/phase3.prompt.js';
-import type { Phase0Data, Phase1Data, Phase2Data, Phase3Data } from '@manuscry/shared';
+import { buildPhase4ChapterPrompt } from '../services/prompts/phase4.prompt.js';
+import type {
+  Phase0Data,
+  Phase1Data,
+  Phase2Data,
+  Phase3Data,
+  Phase4Data,
+  Phase4Chapter,
+} from '@manuscry/shared';
+
+function countWords(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function stripTitleLine(text: string): string {
+  return text.replace(/^#\s+.+\n+/, '');
+}
+
+function mergePhase4Chapter(
+  existing: Phase4Data | null,
+  chapter: Phase4Chapter,
+  totalChapters: number,
+): Phase4Data {
+  const chapters = existing?.chapters?.length
+    ? [...existing.chapters]
+    : Array.from({ length: totalChapters }, (_, i) => ({
+        chapter: i + 1,
+        title: '',
+        content: '',
+        word_count: 0,
+        status: 'pending' as const,
+        updated_at: '',
+      }));
+  chapters[chapter.chapter - 1] = chapter;
+  const total_words = chapters.reduce((acc, c) => acc + (c.word_count || 0), 0);
+  return { chapters, total_words };
+}
 
 export const pipelineRouter = Router();
 
@@ -310,4 +346,202 @@ pipelineRouter.post('/phase3', async (req: AuthenticatedRequest, res) => {
     console.error('Phase 3 generation error:', err);
     res.status(500).json({ error: 'Failed to generate phase 3 data' });
   }
+});
+
+// POST /api/pipeline/phase4/chapter — stream chapter writing via SSE
+pipelineRouter.post('/phase4/chapter', async (req: AuthenticatedRequest, res) => {
+  const { projectId, chapterNum } = req.body as {
+    projectId?: string;
+    chapterNum?: number;
+  };
+
+  if (!projectId || !chapterNum) {
+    res.status(400).json({ error: 'projectId and chapterNum are required' });
+    return;
+  }
+
+  const { data: project, error: fetchError } = await supabaseAdmin
+    .from('projects')
+    .select(
+      'id, market, phase_0_data, phase_2_data, phase_3_data, phase_4_data, phases_completed',
+    )
+    .eq('id', projectId)
+    .eq('user_id', req.userId!)
+    .single();
+
+  if (fetchError || !project) {
+    res.status(404).json({ error: 'Project not found' });
+    return;
+  }
+
+  const phase0Data = project.phase_0_data as Phase0Data | null;
+  const phase2Data = project.phase_2_data as Phase2Data | null;
+  const phase3Data = project.phase_3_data as Phase3Data | null;
+  const phase4Data = project.phase_4_data as Phase4Data | null;
+  const selectedTheme = phase0Data?.selected_theme;
+
+  if (!selectedTheme || !phase2Data || !phase3Data) {
+    res.status(400).json({ error: 'Complete phases 0, 2 and 3 before Phase 4' });
+    return;
+  }
+
+  const chapterPlan = phase3Data.chapter_plan.find((c) => c.chapter === chapterNum);
+  if (!chapterPlan) {
+    res.status(400).json({ error: `Chapter ${chapterNum} not in narrative plan` });
+    return;
+  }
+
+  const previousChapter =
+    chapterNum > 1
+      ? phase4Data?.chapters?.find((c) => c.chapter === chapterNum - 1 && c.content)
+      : undefined;
+
+  // SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders?.();
+
+  const send = (event: Record<string, unknown>) => {
+    res.write(`data: ${JSON.stringify(event)}\n\n`);
+  };
+
+  let fullText = '';
+
+  try {
+    const { system, user } = buildPhase4ChapterPrompt({
+      theme: selectedTheme,
+      phase2: phase2Data,
+      phase3: phase3Data,
+      chapterPlan,
+      previousChapter: previousChapter || undefined,
+      market: (project.market || 'pt-br') as 'pt-br' | 'en',
+    });
+
+    send({ type: 'start', chapter: chapterNum, title: chapterPlan.title });
+
+    await streamChapter(
+      system,
+      user,
+      (chunk) => {
+        fullText += chunk;
+        send({ type: 'chunk', text: chunk });
+      },
+      () => {
+        /* onDone handled below */
+      },
+    );
+
+    const content = stripTitleLine(fullText).trim();
+    const chapterRecord: Phase4Chapter = {
+      chapter: chapterNum,
+      title: chapterPlan.title,
+      content,
+      word_count: countWords(content),
+      status: 'done',
+      updated_at: new Date().toISOString(),
+    };
+
+    const nextPhase4 = mergePhase4Chapter(
+      phase4Data,
+      chapterRecord,
+      phase3Data.chapter_plan.length,
+    );
+
+    const allDone = nextPhase4.chapters.every((c) => c.status === 'done');
+    const phasesCompleted = allDone
+      ? [...new Set([...(project.phases_completed || []), 4])]
+      : project.phases_completed || [];
+
+    const { error: updateError } = await supabaseAdmin
+      .from('projects')
+      .update({
+        phase_4_data: nextPhase4,
+        phases_completed: phasesCompleted,
+        ...(allDone ? { current_phase: 5 } : {}),
+      })
+      .eq('id', projectId);
+
+    if (updateError) {
+      console.error('Phase 4 save error:', updateError);
+      send({ type: 'error', error: 'Failed to save chapter' });
+    } else {
+      send({ type: 'done', chapter: chapterRecord, total_words: nextPhase4.total_words });
+    }
+  } catch (err) {
+    console.error('Phase 4 streaming error:', err);
+    send({
+      type: 'error',
+      error: err instanceof Error ? err.message : 'Streaming failed',
+    });
+  } finally {
+    res.end();
+  }
+});
+
+// PATCH /api/pipeline/phase4/chapter — save manual edits
+pipelineRouter.patch('/phase4/chapter', async (req: AuthenticatedRequest, res) => {
+  const { projectId, chapterNum, content, title } = req.body as {
+    projectId?: string;
+    chapterNum?: number;
+    content?: string;
+    title?: string;
+  };
+
+  if (!projectId || !chapterNum || typeof content !== 'string') {
+    res.status(400).json({ error: 'projectId, chapterNum and content are required' });
+    return;
+  }
+
+  const { data: project, error: fetchError } = await supabaseAdmin
+    .from('projects')
+    .select('id, phase_3_data, phase_4_data, phases_completed')
+    .eq('id', projectId)
+    .eq('user_id', req.userId!)
+    .single();
+
+  if (fetchError || !project) {
+    res.status(404).json({ error: 'Project not found' });
+    return;
+  }
+
+  const phase3Data = project.phase_3_data as Phase3Data | null;
+  if (!phase3Data) {
+    res.status(400).json({ error: 'Phase 3 not complete' });
+    return;
+  }
+
+  const chapterPlan = phase3Data.chapter_plan.find((c) => c.chapter === chapterNum);
+  if (!chapterPlan) {
+    res.status(400).json({ error: `Chapter ${chapterNum} not in narrative plan` });
+    return;
+  }
+
+  const chapterRecord: Phase4Chapter = {
+    chapter: chapterNum,
+    title: title || chapterPlan.title,
+    content,
+    word_count: countWords(content),
+    status: 'draft',
+    updated_at: new Date().toISOString(),
+  };
+
+  const nextPhase4 = mergePhase4Chapter(
+    project.phase_4_data as Phase4Data | null,
+    chapterRecord,
+    phase3Data.chapter_plan.length,
+  );
+
+  const { error: updateError } = await supabaseAdmin
+    .from('projects')
+    .update({ phase_4_data: nextPhase4 })
+    .eq('id', projectId);
+
+  if (updateError) {
+    res.status(500).json({ error: 'Failed to save chapter' });
+    return;
+  }
+
+  res.json({ chapter: chapterRecord, total_words: nextPhase4.total_words });
 });

@@ -13,7 +13,7 @@ export interface Project {
   phase_1_data: Phase1Data | null;
   phase_2_data: Phase2Data | null;
   phase_3_data: Phase3Data | null;
-  phase_4_data: Record<string, unknown> | null;
+  phase_4_data: Phase4Data | null;
   phase_5_data: Record<string, unknown> | null;
 
   asin: string | null;
@@ -92,6 +92,22 @@ export interface Phase3Data {
   ending_strategy: string;
   tension_map: string[];
   chapter_plan: Phase3ChapterPlan[];
+}
+
+export type Phase4ChapterStatus = 'pending' | 'streaming' | 'draft' | 'done';
+
+export interface Phase4Chapter {
+  chapter: number;
+  title: string;
+  content: string;
+  word_count: number;
+  status: Phase4ChapterStatus;
+  updated_at: string;
+}
+
+export interface Phase4Data {
+  chapters: Phase4Chapter[];
+  total_words: number;
 }
 
 export interface CreateProjectInput {
