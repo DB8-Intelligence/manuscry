@@ -3,7 +3,10 @@ import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { supabaseAdmin } from '../services/supabase.js';
 import { generateStructured } from '../services/claude.service.js';
 import { buildPhase0Prompt } from '../services/prompts/phase0.prompt.js';
-import type { Phase0Data } from '@manuscry/shared';
+import { buildPhase1Prompt } from '../services/prompts/phase1.prompt.js';
+import { buildPhase2Prompt } from '../services/prompts/phase2.prompt.js';
+import { buildPhase3Prompt } from '../services/prompts/phase3.prompt.js';
+import type { Phase0Data, Phase1Data, Phase2Data, Phase3Data } from '@manuscry/shared';
 
 export const pipelineRouter = Router();
 
@@ -108,4 +111,203 @@ pipelineRouter.post('/phase0/select', async (req: AuthenticatedRequest, res) => 
   }
 
   res.json({ selected_theme: selectedTheme, current_phase: 1 });
+});
+
+// POST /api/pipeline/phase1 — define theme positioning and UVP
+pipelineRouter.post('/phase1', async (req: AuthenticatedRequest, res) => {
+  const { projectId } = req.body;
+
+  if (!projectId) {
+    res.status(400).json({ error: 'projectId is required' });
+    return;
+  }
+
+  const { data: project, error: fetchError } = await supabaseAdmin
+    .from('projects')
+    .select('id, market, phase_0_data, phases_completed')
+    .eq('id', projectId)
+    .eq('user_id', req.userId!)
+    .single();
+
+  if (fetchError || !project) {
+    res.status(404).json({ error: 'Project not found' });
+    return;
+  }
+
+  const phase0Data = project.phase_0_data as Phase0Data | null;
+  const selectedTheme = phase0Data?.selected_theme;
+  if (!selectedTheme) {
+    res.status(400).json({ error: 'Select a Phase 0 theme before Phase 1' });
+    return;
+  }
+
+  try {
+    const prompt = buildPhase1Prompt(selectedTheme, (project.market || 'pt-br') as 'pt-br' | 'en');
+    const result = await generateStructured<Phase1Data>(
+      'You are a publishing strategist. Respond with valid JSON only.',
+      prompt,
+      4096,
+    );
+
+    const phasesCompleted = Array.isArray(project.phases_completed)
+      ? [...new Set([...project.phases_completed, 1])]
+      : [1];
+
+    const { error: updateError } = await supabaseAdmin
+      .from('projects')
+      .update({
+        phase_1_data: result,
+        current_phase: 2,
+        phases_completed: phasesCompleted,
+      })
+      .eq('id', projectId);
+
+    if (updateError) {
+      res.status(500).json({ error: 'Failed to save phase 1 data' });
+      return;
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error('Phase 1 generation error:', err);
+    res.status(500).json({ error: 'Failed to generate phase 1 data' });
+  }
+});
+
+// POST /api/pipeline/phase2 — build Book Bible
+pipelineRouter.post('/phase2', async (req: AuthenticatedRequest, res) => {
+  const { projectId } = req.body;
+
+  if (!projectId) {
+    res.status(400).json({ error: 'projectId is required' });
+    return;
+  }
+
+  const { data: project, error: fetchError } = await supabaseAdmin
+    .from('projects')
+    .select('id, market, phase_0_data, phase_1_data, phases_completed')
+    .eq('id', projectId)
+    .eq('user_id', req.userId!)
+    .single();
+
+  if (fetchError || !project) {
+    res.status(404).json({ error: 'Project not found' });
+    return;
+  }
+
+  const phase0Data = project.phase_0_data as Phase0Data | null;
+  const selectedTheme = phase0Data?.selected_theme;
+  const phase1Data = project.phase_1_data as Phase1Data | null;
+
+  if (!selectedTheme || !phase1Data) {
+    res.status(400).json({ error: 'Complete phases 0 and 1 before Phase 2' });
+    return;
+  }
+
+  try {
+    const prompt = buildPhase2Prompt(
+      selectedTheme,
+      phase1Data,
+      (project.market || 'pt-br') as 'pt-br' | 'en',
+    );
+
+    const result = await generateStructured<Phase2Data>(
+      'You are a senior book concept architect. Respond with valid JSON only.',
+      prompt,
+      6144,
+    );
+
+    const phasesCompleted = Array.isArray(project.phases_completed)
+      ? [...new Set([...project.phases_completed, 2])]
+      : [2];
+
+    const { error: updateError } = await supabaseAdmin
+      .from('projects')
+      .update({
+        phase_2_data: result,
+        current_phase: 3,
+        phases_completed: phasesCompleted,
+      })
+      .eq('id', projectId);
+
+    if (updateError) {
+      res.status(500).json({ error: 'Failed to save phase 2 data' });
+      return;
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error('Phase 2 generation error:', err);
+    res.status(500).json({ error: 'Failed to generate phase 2 data' });
+  }
+});
+
+// POST /api/pipeline/phase3 — build chapter-by-chapter narrative plan
+pipelineRouter.post('/phase3', async (req: AuthenticatedRequest, res) => {
+  const { projectId } = req.body;
+
+  if (!projectId) {
+    res.status(400).json({ error: 'projectId is required' });
+    return;
+  }
+
+  const { data: project, error: fetchError } = await supabaseAdmin
+    .from('projects')
+    .select('id, market, phase_0_data, phase_1_data, phase_2_data, phases_completed')
+    .eq('id', projectId)
+    .eq('user_id', req.userId!)
+    .single();
+
+  if (fetchError || !project) {
+    res.status(404).json({ error: 'Project not found' });
+    return;
+  }
+
+  const phase0Data = project.phase_0_data as Phase0Data | null;
+  const selectedTheme = phase0Data?.selected_theme;
+  const phase1Data = project.phase_1_data as Phase1Data | null;
+  const phase2Data = project.phase_2_data as Phase2Data | null;
+
+  if (!selectedTheme || !phase1Data || !phase2Data) {
+    res.status(400).json({ error: 'Complete phases 0, 1 and 2 before Phase 3' });
+    return;
+  }
+
+  try {
+    const prompt = buildPhase3Prompt(
+      selectedTheme,
+      phase1Data,
+      phase2Data,
+      (project.market || 'pt-br') as 'pt-br' | 'en',
+    );
+
+    const result = await generateStructured<Phase3Data>(
+      'You are a narrative architect. Respond with valid JSON only.',
+      prompt,
+      6144,
+    );
+
+    const phasesCompleted = Array.isArray(project.phases_completed)
+      ? [...new Set([...project.phases_completed, 3])]
+      : [3];
+
+    const { error: updateError } = await supabaseAdmin
+      .from('projects')
+      .update({
+        phase_3_data: result,
+        current_phase: 4,
+        phases_completed: phasesCompleted,
+      })
+      .eq('id', projectId);
+
+    if (updateError) {
+      res.status(500).json({ error: 'Failed to save phase 3 data' });
+      return;
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error('Phase 3 generation error:', err);
+    res.status(500).json({ error: 'Failed to generate phase 3 data' });
+  }
 });

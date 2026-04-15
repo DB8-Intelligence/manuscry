@@ -5,6 +5,9 @@ import AuthCallback from '@/pages/AuthCallback';
 import Dashboard from '@/pages/Dashboard';
 import ProjectView from '@/pages/ProjectView';
 import Phase0 from '@/pages/Phase0';
+import Phase1 from '@/pages/Phase1';
+import Phase2 from '@/pages/Phase2';
+import Phase3 from '@/pages/Phase3';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -52,6 +55,9 @@ export default function App() {
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/projects/:id" element={<ProtectedRoute><ProjectView /></ProtectedRoute>} />
         <Route path="/projects/:id/phase-0" element={<ProtectedRoute><Phase0 /></ProtectedRoute>} />
+        <Route path="/projects/:id/phase-1" element={<ProtectedRoute><Phase1 /></ProtectedRoute>} />
+        <Route path="/projects/:id/phase-2" element={<ProtectedRoute><Phase2 /></ProtectedRoute>} />
+        <Route path="/projects/:id/phase-3" element={<ProtectedRoute><Phase3 /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );
