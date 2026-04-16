@@ -13,7 +13,7 @@ export interface Project {
   phase_1_data: Phase1Data | null;
   phase_2_data: Phase2Data | null;
   phase_3_data: Phase3Data | null;
-  phase_4_data: Record<string, unknown> | null;
+  phase_4_data: Phase4Data | null;
   phase_5_data: Record<string, unknown> | null;
 
   asin: string | null;
@@ -183,4 +183,23 @@ export interface Phase3Data {
   total_words_target: number;
   tension_map: number[];
   chapters: ChapterOutline[];
+}
+
+// ── Phase 4 — Writing Engine ─────────────────────────────────────────────────
+
+export type WrittenChapterStatus = 'pending' | 'writing' | 'completed' | 'humanized';
+
+export interface WrittenChapter {
+  number: number;
+  title: string;
+  content: string;
+  word_count: number;
+  status: WrittenChapterStatus;
+  written_at: string | null;
+  humanized_at: string | null;
+}
+
+export interface Phase4Data {
+  chapters: WrittenChapter[];
+  total_words_written: number;
 }

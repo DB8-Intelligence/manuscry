@@ -1,12 +1,16 @@
 import { Router } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { supabaseAdmin } from '../services/supabase.js';
-import { generateStructured } from '../services/claude.service.js';
+import { generateStructured, streamChapter } from '../services/claude.service.js';
 import { buildPhase0Prompt } from '../services/prompts/phase0.prompt.js';
 import { buildPhase1Prompt } from '../services/prompts/phase1.prompt.js';
 import { buildPhase2PromptFiction, buildPhase2PromptNonfiction } from '../services/prompts/phase2.prompt.js';
 import { buildPhase3Prompt } from '../services/prompts/phase3.prompt.js';
-import type { Phase0Data, Phase1Data, Phase2Data, Phase3Data, AuthorAnswers } from '@manuscry/shared';
+import { buildChapterWriterPrompt, buildHumanizerPrompt } from '../services/prompts/phase4.prompt.js';
+import type {
+  Phase0Data, Phase1Data, Phase2Data, Phase3Data, Phase4Data,
+  AuthorAnswers, WrittenChapter, ChapterOutline,
+} from '@manuscry/shared';
 
 export const pipelineRouter = Router();
 
@@ -267,5 +271,197 @@ pipelineRouter.post('/phase3', async (req: AuthenticatedRequest, res) => {
   } catch (err) {
     const e = err as Error & { statusCode?: number };
     res.status(e.statusCode || 500).json({ error: e.message });
+  }
+});
+
+// ── FASE 4 — Writing Engine (SSE) ────────────────────────────────────────────
+
+function getPhase4Data(project: Record<string, unknown>): Phase4Data {
+  const existing = project.phase_4_data as Phase4Data | null;
+  if (existing?.chapters) return existing;
+  return { chapters: [], total_words_written: 0 };
+}
+
+// POST /api/pipeline/phase4/write — stream-write a single chapter via SSE
+pipelineRouter.post('/phase4/write', async (req: AuthenticatedRequest, res) => {
+  const { projectId, chapterNumber } = req.body as {
+    projectId: string;
+    chapterNumber: number;
+  };
+
+  if (!projectId || chapterNumber === undefined) {
+    res.status(400).json({ error: 'projectId e chapterNumber obrigatórios' });
+    return;
+  }
+
+  try {
+    const project = await getOwnedProject(projectId, req.userId!);
+    const phasesCompleted: number[] = project.phases_completed || [];
+    requirePhaseCompleted(phasesCompleted, 3, 'Narrative Architect');
+
+    const bookBible = project.phase_2_data as Record<string, unknown> | null;
+    if (!bookBible) {
+      res.status(400).json({ error: 'Book Bible (Fase 2) não encontrado' });
+      return;
+    }
+
+    const phase3Data = project.phase_3_data as Phase3Data | null;
+    if (!phase3Data?.chapters) {
+      res.status(400).json({ error: 'Roteiro (Fase 3) não encontrado' });
+      return;
+    }
+
+    const chapterOutline = phase3Data.chapters.find(
+      (ch: ChapterOutline) => ch.number === chapterNumber,
+    );
+    if (!chapterOutline) {
+      res.status(400).json({ error: `Capítulo ${chapterNumber} não encontrado no roteiro` });
+      return;
+    }
+
+    // Get the 2 previous written chapters for continuity
+    const phase4Data = getPhase4Data(project as Record<string, unknown>);
+    const previousChapters = phase4Data.chapters
+      .filter((ch: WrittenChapter) => ch.number < chapterNumber && ch.status !== 'pending')
+      .sort((a: WrittenChapter, b: WrittenChapter) => b.number - a.number)
+      .slice(0, 2)
+      .reverse()
+      .map((ch: WrittenChapter) => ({ number: ch.number, title: ch.title, content: ch.content }));
+
+    const market = (project.market || 'pt-br') as 'pt-br' | 'en';
+    const { system, user } = buildChapterWriterPrompt(
+      bookBible, chapterOutline, previousChapters, market,
+    );
+
+    // SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    let fullContent = '';
+
+    await streamChapter(system, user,
+      (text: string) => {
+        fullContent += text;
+        res.write(`data: ${JSON.stringify({ text })}\n\n`);
+      },
+      async () => {
+        const wordCount = fullContent.split(/\s+/).filter(Boolean).length;
+        const written: WrittenChapter = {
+          number: chapterNumber,
+          title: chapterOutline.title,
+          content: fullContent,
+          word_count: wordCount,
+          status: 'completed',
+          written_at: new Date().toISOString(),
+          humanized_at: null,
+        };
+
+        const existingIdx = phase4Data.chapters.findIndex(
+          (ch: WrittenChapter) => ch.number === chapterNumber,
+        );
+        if (existingIdx >= 0) {
+          phase4Data.chapters[existingIdx] = written;
+        } else {
+          phase4Data.chapters.push(written);
+        }
+        phase4Data.total_words_written = phase4Data.chapters
+          .filter((ch: WrittenChapter) => ch.status !== 'pending')
+          .reduce((sum: number, ch: WrittenChapter) => sum + ch.word_count, 0);
+
+        await savePhaseData(projectId, 4, phase4Data);
+
+        const totalChapters = phase3Data!.chapters.length;
+        const writtenCount = phase4Data.chapters.filter(
+          (ch: WrittenChapter) => ch.status === 'completed' || ch.status === 'humanized',
+        ).length;
+        if (writtenCount >= totalChapters) {
+          await completePhase(projectId, 4, 5, phasesCompleted);
+        }
+
+        res.write(`data: ${JSON.stringify({ done: true, total_words: wordCount })}\n\n`);
+        res.end();
+      },
+    );
+  } catch (err) {
+    const e = err as Error & { statusCode?: number };
+    if (!res.headersSent) {
+      res.status(e.statusCode || 500).json({ error: e.message });
+    } else {
+      res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`);
+      res.end();
+    }
+  }
+});
+
+// POST /api/pipeline/phase4/humanize — humanize a written chapter via SSE
+pipelineRouter.post('/phase4/humanize', async (req: AuthenticatedRequest, res) => {
+  const { projectId, chapterNumber } = req.body as {
+    projectId: string;
+    chapterNumber: number;
+  };
+
+  if (!projectId || chapterNumber === undefined) {
+    res.status(400).json({ error: 'projectId e chapterNumber obrigatórios' });
+    return;
+  }
+
+  try {
+    const project = await getOwnedProject(projectId, req.userId!);
+    const bookBible = project.phase_2_data as Record<string, unknown> | null;
+    if (!bookBible) {
+      res.status(400).json({ error: 'Book Bible não encontrado' });
+      return;
+    }
+
+    const phase4Data = getPhase4Data(project as Record<string, unknown>);
+    const chapter = phase4Data.chapters.find((ch: WrittenChapter) => ch.number === chapterNumber);
+    if (!chapter?.content) {
+      res.status(400).json({ error: 'Capítulo não encontrado ou sem conteúdo' });
+      return;
+    }
+
+    const market = (project.market || 'pt-br') as 'pt-br' | 'en';
+    const { system, user } = buildHumanizerPrompt(chapter.content, bookBible, market);
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    let humanizedContent = '';
+
+    await streamChapter(system, user,
+      (text: string) => {
+        humanizedContent += text;
+        res.write(`data: ${JSON.stringify({ text })}\n\n`);
+      },
+      async () => {
+        const wordCount = humanizedContent.split(/\s+/).filter(Boolean).length;
+        chapter.content = humanizedContent;
+        chapter.word_count = wordCount;
+        chapter.status = 'humanized';
+        chapter.humanized_at = new Date().toISOString();
+
+        phase4Data.total_words_written = phase4Data.chapters
+          .filter((ch: WrittenChapter) => ch.status !== 'pending')
+          .reduce((sum: number, ch: WrittenChapter) => sum + ch.word_count, 0);
+        await savePhaseData(projectId, 4, phase4Data);
+
+        res.write(`data: ${JSON.stringify({ done: true, total_words: wordCount })}\n\n`);
+        res.end();
+      },
+    );
+  } catch (err) {
+    const e = err as Error & { statusCode?: number };
+    if (!res.headersSent) {
+      res.status(e.statusCode || 500).json({ error: e.message });
+    } else {
+      res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`);
+      res.end();
+    }
   }
 });
