@@ -5,6 +5,9 @@ import AuthCallback from '@/pages/AuthCallback';
 import Dashboard from '@/pages/Dashboard';
 import ProjectView from '@/pages/ProjectView';
 import Phase0 from '@/pages/Phase0';
+import Phase1 from '@/pages/Phase1';
+import Phase2 from '@/pages/Phase2';
+import Phase3 from '@/pages/Phase3';
 import PhaseStub from '@/pages/PhaseStub';
 import Settings from '@/pages/Settings';
 
@@ -59,30 +62,9 @@ export default function App() {
 
         <Route path="/projects/:id" element={<ProtectedRoute><ProjectView /></ProtectedRoute>} />
         <Route path="/projects/:id/phase-0" element={<ProtectedRoute><Phase0 /></ProtectedRoute>} />
-        <Route
-          path="/projects/:id/phase-1"
-          element={
-            <ProtectedRoute>
-              <PhaseStub phase={1} name="Theme Selector" description="Validação e refinamento do tema" eta="Semana 2" />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/projects/:id/phase-2"
-          element={
-            <ProtectedRoute>
-              <PhaseStub phase={2} name="Concept Builder" description="Book Bible completo" eta="Semana 2" />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/projects/:id/phase-3"
-          element={
-            <ProtectedRoute>
-              <PhaseStub phase={3} name="Narrative Architect" description="Roteiro cap a cap + mapa de tensão" eta="Semana 2" />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/projects/:id/phase-1" element={<ProtectedRoute><Phase1 /></ProtectedRoute>} />
+        <Route path="/projects/:id/phase-2" element={<ProtectedRoute><Phase2 /></ProtectedRoute>} />
+        <Route path="/projects/:id/phase-3" element={<ProtectedRoute><Phase3 /></ProtectedRoute>} />
         <Route
           path="/projects/:id/phase-4"
           element={
