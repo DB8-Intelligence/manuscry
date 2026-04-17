@@ -60,6 +60,9 @@ biographyRouter.post('/generate', async (req: AuthenticatedRequest, res) => {
     const phase5Data: Phase5Data = {
       covers: existing5.covers || null,
       biography: biographyData,
+      design: existing5.design || null,
+      metadata: existing5.metadata || null,
+      audiobook: existing5.audiobook || null,
     };
 
     await supabaseAdmin

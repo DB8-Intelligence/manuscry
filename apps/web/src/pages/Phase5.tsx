@@ -4,6 +4,7 @@ import { useProjectStore } from '@/stores/projectStore';
 import { api } from '@/lib/api';
 import type {
   Phase5Data, CoverData, CoverVariation, BiographyData,
+  BookDesignData, KdpMetadata, AudiobookData, AudiobookChapterScript, Phase4Data,
 } from '@manuscry/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,6 +24,18 @@ const BIO_LOADING = [
   'Analisando o perfil do livro...',
   'Criando biografias por plataforma...',
   'Otimizando para KDP e redes sociais...',
+];
+
+const DESIGN_LOADING = [
+  'Calculando trim size e margens...',
+  'Definindo tipografia para o gênero...',
+  'Gerando specs de dust jacket...',
+];
+
+const META_LOADING = [
+  'Pesquisando keywords KDP...',
+  'Otimizando categorias BISAC...',
+  'Criando descrição HTML...',
 ];
 
 function CoverCard({
@@ -131,6 +144,11 @@ export default function Phase5() {
   const [coversLoadingMsg, setCoversLoadingMsg] = useState(0);
   const [bioLoading, setBioLoading] = useState(false);
   const [bioLoadingMsg, setBioLoadingMsg] = useState(0);
+  const [designLoading, setDesignLoading] = useState(false);
+  const [designLoadingMsg, setDesignLoadingMsg] = useState(0);
+  const [metaLoading, setMetaLoading] = useState(false);
+  const [metaLoadingMsg, setMetaLoadingMsg] = useState(0);
+  const [audioLoading, setAudioLoading] = useState(false);
   const [error, setError] = useState('');
 
   // Biography form
@@ -157,9 +175,29 @@ export default function Phase5() {
     return () => clearInterval(interval);
   }, [bioLoading]);
 
-  const phase5Data = (currentProject?.phase_5_data || { covers: null, biography: null }) as Phase5Data;
+  useEffect(() => {
+    if (!designLoading) return;
+    const interval = setInterval(() => {
+      setDesignLoadingMsg((p) => (p + 1) % DESIGN_LOADING.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [designLoading]);
+
+  useEffect(() => {
+    if (!metaLoading) return;
+    const interval = setInterval(() => {
+      setMetaLoadingMsg((p) => (p + 1) % META_LOADING.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [metaLoading]);
+
+  const phase5Data = (currentProject?.phase_5_data || { covers: null, biography: null, design: null, metadata: null, audiobook: null }) as Phase5Data;
   const coverData = phase5Data.covers;
   const bioData = phase5Data.biography;
+  const designData = phase5Data.design;
+  const metaData = phase5Data.metadata;
+  const audioData = phase5Data.audiobook;
+  const phase4Data = (currentProject?.phase_4_data || { chapters: [] }) as Phase4Data;
 
   if (!currentProject) {
     return (
@@ -213,6 +251,50 @@ export default function Phase5() {
     }
   }
 
+  async function generateDesign() {
+    if (!id) return;
+    setDesignLoading(true);
+    setError('');
+    setDesignLoadingMsg(0);
+    try {
+      await api.post<BookDesignData>('/api/production/design', { projectId: id });
+      await fetchProject(id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao gerar specs de design');
+    } finally {
+      setDesignLoading(false);
+    }
+  }
+
+  async function generateMetadata() {
+    if (!id) return;
+    setMetaLoading(true);
+    setError('');
+    setMetaLoadingMsg(0);
+    try {
+      await api.post<KdpMetadata>('/api/production/metadata', { projectId: id });
+      await fetchProject(id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao gerar metadados');
+    } finally {
+      setMetaLoading(false);
+    }
+  }
+
+  async function generateAllAudiobook() {
+    if (!id) return;
+    setAudioLoading(true);
+    setError('');
+    try {
+      await api.post<AudiobookData>('/api/production/audiobook/all', { projectId: id });
+      await fetchProject(id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao gerar audiobook');
+    } finally {
+      setAudioLoading(false);
+    }
+  }
+
   const hasSelectedCover = coverData?.covers?.some((c) => c.selected) || false;
 
   return (
@@ -261,6 +343,33 @@ export default function Phase5() {
             >
               Biografia
               {bioData && (
+                <span className="ml-2 w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="design"
+              className="data-[state=active]:bg-[#1E3A8A] data-[state=active]:text-white"
+            >
+              Design
+              {designData && (
+                <span className="ml-2 w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="metadata"
+              className="data-[state=active]:bg-[#1E3A8A] data-[state=active]:text-white"
+            >
+              KDP Metadata
+              {metaData && (
+                <span className="ml-2 w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="audiobook"
+              className="data-[state=active]:bg-[#1E3A8A] data-[state=active]:text-white"
+            >
+              Audiobook
+              {audioData && (
                 <span className="ml-2 w-2 h-2 rounded-full bg-emerald-400 inline-block" />
               )}
             </TabsTrigger>
@@ -435,6 +544,296 @@ export default function Phase5() {
                   </CardContent>
                 </Card>
               </>
+            )}
+          </TabsContent>
+
+          {/* ── DESIGN TAB ── */}
+          <TabsContent value="design" className="space-y-6">
+            {!designData && !designLoading && (
+              <Card className="border-slate-700 bg-slate-900/50 text-center py-12">
+                <CardContent className="space-y-4">
+                  <div className="text-4xl mb-2">{'\u{1F4D0}'}</div>
+                  <h3 className="text-lg font-semibold text-white">Specs de Design do Livro</h3>
+                  <p className="text-sm text-slate-400 max-w-md mx-auto">
+                    Tipografia, trim size, margens, dust jacket e specs de ebook otimizados para KDP e IngramSpark.
+                  </p>
+                  <Button onClick={generateDesign} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-medium px-8">
+                    Gerar specs de design
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {designLoading && (
+              <Card className="border-slate-700 bg-slate-900/50 text-center py-16">
+                <CardContent>
+                  <div className="animate-spin w-8 h-8 border-4 border-slate-600 border-t-amber-500 rounded-full mx-auto mb-4" />
+                  <p className="text-white font-medium">{DESIGN_LOADING[designLoadingMsg]}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {designData && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-white font-semibold">Especificações de Design</h3>
+                  <Button variant="ghost" onClick={generateDesign} disabled={designLoading} className="text-slate-500 hover:text-slate-300 text-sm">Regerar</Button>
+                </div>
+
+                {/* Trim size + Interior */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card className="border-slate-700 bg-slate-900/50">
+                    <CardHeader className="pb-2"><CardTitle className="text-white text-sm">Trim Size</CardTitle></CardHeader>
+                    <CardContent className="text-sm space-y-1">
+                      <p className="text-slate-300">{designData.trim_size.name}</p>
+                      <p className="text-slate-400">{designData.trim_size.width_inches}" x {designData.trim_size.height_inches}"</p>
+                      <div className="flex gap-2 mt-2">
+                        {designData.trim_size.kdp_compatible && <Badge className="bg-emerald-900/30 text-emerald-400 text-xs">KDP</Badge>}
+                        {designData.trim_size.ingram_compatible && <Badge className="bg-emerald-900/30 text-emerald-400 text-xs">IngramSpark</Badge>}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-slate-700 bg-slate-900/50">
+                    <CardHeader className="pb-2"><CardTitle className="text-white text-sm">Interior</CardTitle></CardHeader>
+                    <CardContent className="text-sm space-y-1">
+                      <p className="text-slate-300">Papel: {designData.interior.paper_type}</p>
+                      <p className="text-slate-400">{designData.interior.estimated_page_count} páginas estimadas</p>
+                      <p className="text-slate-400">Lombada: {designData.interior.spine_width_inches}"</p>
+                      <p className="text-slate-400">Margens: {designData.interior.margins.top_inches}" / {designData.interior.margins.outside_inches}" / {designData.interior.margins.bottom_inches}" / {designData.interior.margins.inside_inches}"</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Typography */}
+                <Card className="border-slate-700 bg-slate-900/50">
+                  <CardHeader className="pb-2"><CardTitle className="text-white text-sm">Tipografia</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                      <div><span className="text-slate-500">Corpo</span><p className="text-slate-300">{designData.typography.body_font} {designData.typography.body_size_pt}pt</p></div>
+                      <div><span className="text-slate-500">Títulos</span><p className="text-slate-300">{designData.typography.heading_font} {designData.typography.heading_size_pt}pt</p></div>
+                      <div><span className="text-slate-500">Espaçamento</span><p className="text-slate-300">{designData.typography.line_spacing}x</p></div>
+                      <div><span className="text-slate-500">Indentação</span><p className="text-slate-300">{designData.typography.paragraph_indent_inches}"</p></div>
+                      <div><span className="text-slate-500">Capitular</span><p className="text-slate-300">{designData.typography.drop_cap ? 'Sim' : 'Não'}</p></div>
+                      <div><span className="text-slate-500">Estilo capítulo</span><p className="text-slate-300">{designData.typography.chapter_number_style}</p></div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Front/Back matter */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card className="border-slate-700 bg-slate-900/50">
+                    <CardHeader className="pb-2"><CardTitle className="text-white text-sm">Front Matter</CardTitle></CardHeader>
+                    <CardContent><ul className="text-sm text-slate-400 space-y-1">{designData.front_matter.map((item, i) => <li key={i}>{item}</li>)}</ul></CardContent>
+                  </Card>
+                  <Card className="border-slate-700 bg-slate-900/50">
+                    <CardHeader className="pb-2"><CardTitle className="text-white text-sm">Back Matter</CardTitle></CardHeader>
+                    <CardContent><ul className="text-sm text-slate-400 space-y-1">{designData.back_matter.map((item, i) => <li key={i}>{item}</li>)}</ul></CardContent>
+                  </Card>
+                </div>
+
+                {/* Ebook specs */}
+                <Card className="border-slate-700 bg-slate-900/50">
+                  <CardHeader className="pb-2"><CardTitle className="text-white text-sm">Ebook</CardTitle></CardHeader>
+                  <CardContent className="text-sm space-y-1">
+                    <p className="text-slate-300">Formato: {designData.ebook.format}</p>
+                    <p className="text-slate-400">Capa: {designData.ebook.cover_dimensions}</p>
+                    <p className="text-slate-400">{designData.ebook.css_notes}</p>
+                  </CardContent>
+                </Card>
+
+                {designData.recommendations && (
+                  <Card className="border-amber-800/30 bg-amber-950/10">
+                    <CardContent className="p-4"><p className="text-amber-200/80 text-sm">{designData.recommendations}</p></CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ── METADATA TAB ── */}
+          <TabsContent value="metadata" className="space-y-6">
+            {!metaData && !metaLoading && (
+              <Card className="border-slate-700 bg-slate-900/50 text-center py-12">
+                <CardContent className="space-y-4">
+                  <div className="text-4xl mb-2">{'\u{1F50D}'}</div>
+                  <h3 className="text-lg font-semibold text-white">Metadados KDP Otimizados</h3>
+                  <p className="text-sm text-slate-400 max-w-md mx-auto">
+                    Keywords, categorias BISAC, descrição HTML e A+ content para maximizar visibilidade na Amazon.
+                  </p>
+                  <Button onClick={generateMetadata} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-medium px-8">
+                    Gerar metadados KDP
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {metaLoading && (
+              <Card className="border-slate-700 bg-slate-900/50 text-center py-16">
+                <CardContent>
+                  <div className="animate-spin w-8 h-8 border-4 border-slate-600 border-t-amber-500 rounded-full mx-auto mb-4" />
+                  <p className="text-white font-medium">{META_LOADING[metaLoadingMsg]}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {metaData && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-white font-semibold">Metadados KDP</h3>
+                  <Button variant="ghost" onClick={generateMetadata} disabled={metaLoading} className="text-slate-500 hover:text-slate-300 text-sm">Regerar</Button>
+                </div>
+
+                {/* Search title */}
+                <Card className="border-amber-800/30 bg-amber-950/10">
+                  <CardContent className="p-4">
+                    <span className="text-xs text-slate-500 uppercase">Título otimizado para busca</span>
+                    <p className="text-white font-medium mt-1">{metaData.search_title}</p>
+                  </CardContent>
+                </Card>
+
+                {/* Keywords */}
+                <Card className="border-slate-700 bg-slate-900/50">
+                  <CardHeader className="pb-2"><CardTitle className="text-white text-sm">Keywords (7 primárias)</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {metaData.keywords.primary.map((kw, i) => (
+                        <Badge key={i} className="bg-[#1E3A8A]/20 text-[#93C5FD] text-xs">{kw}</Badge>
+                      ))}
+                    </div>
+                    <p className="text-xs text-slate-500 mb-2">Long-tail:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {metaData.keywords.long_tail.map((kw, i) => (
+                        <Badge key={i} className="bg-slate-800 text-slate-400 text-xs">{kw}</Badge>
+                      ))}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-3">{metaData.keywords.strategy}</p>
+                  </CardContent>
+                </Card>
+
+                {/* Categories */}
+                <Card className="border-slate-700 bg-slate-900/50">
+                  <CardHeader className="pb-2"><CardTitle className="text-white text-sm">Categorias BISAC</CardTitle></CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    <div>
+                      <Badge className="bg-emerald-900/30 text-emerald-400 text-xs mb-1">Primária</Badge>
+                      <p className="text-slate-300">{metaData.categories.bisac_primary.code} — {metaData.categories.bisac_primary.name}</p>
+                      <p className="text-xs text-slate-500">{metaData.categories.bisac_primary.reason}</p>
+                    </div>
+                    <div>
+                      <Badge className="bg-blue-900/30 text-blue-400 text-xs mb-1">Secundária</Badge>
+                      <p className="text-slate-300">{metaData.categories.bisac_secondary.code} — {metaData.categories.bisac_secondary.name}</p>
+                      <p className="text-xs text-slate-500">{metaData.categories.bisac_secondary.reason}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500 text-xs">Browse categories KDP:</p>
+                      {metaData.categories.kdp_browse_categories.map((cat, i) => (
+                        <p key={i} className="text-slate-400 text-xs">{cat}</p>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* HTML Description */}
+                <BioSection label="Descrição HTML (KDP)" content={metaData.description_html} />
+                <BioSection label="Descrição Plain (IngramSpark)" content={metaData.description_plain} />
+
+                {/* A+ Content */}
+                <Card className="border-slate-700 bg-slate-900/50">
+                  <CardHeader className="pb-2"><CardTitle className="text-white text-sm">A+ Content</CardTitle></CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-slate-300 font-medium">{metaData.a_plus_content.headline}</p>
+                    {metaData.a_plus_content.modules.map((mod, i) => (
+                      <div key={i} className="border-l-2 border-slate-700 pl-3">
+                        <Badge className="bg-slate-800 text-slate-400 text-xs mb-1">{mod.type}</Badge>
+                        <p className="text-sm text-slate-300">{mod.title}</p>
+                        <p className="text-xs text-slate-400">{mod.content}</p>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ── AUDIOBOOK TAB ── */}
+          <TabsContent value="audiobook" className="space-y-6">
+            {!audioData && !audioLoading && (
+              <Card className="border-slate-700 bg-slate-900/50 text-center py-12">
+                <CardContent className="space-y-4">
+                  <div className="text-4xl mb-2">{'\u{1F3A7}'}</div>
+                  <h3 className="text-lg font-semibold text-white">Scripts de Audiobook</h3>
+                  <p className="text-sm text-slate-400 max-w-md mx-auto">
+                    Converte seus capítulos em scripts de narração prontos para ElevenLabs, ACX (Audible) e Findaway Voices.
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {phase4Data.chapters.filter((ch) => ch.content).length} capítulos disponíveis para conversão
+                  </p>
+                  <Button
+                    onClick={generateAllAudiobook}
+                    disabled={phase4Data.chapters.filter((ch) => ch.content).length === 0}
+                    className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-medium px-8"
+                  >
+                    Gerar scripts de todos os capítulos
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {audioLoading && (
+              <Card className="border-slate-700 bg-slate-900/50 text-center py-16">
+                <CardContent>
+                  <div className="animate-spin w-8 h-8 border-4 border-slate-600 border-t-amber-500 rounded-full mx-auto mb-4" />
+                  <p className="text-white font-medium">Convertendo capítulos para narração...</p>
+                  <p className="text-sm text-slate-500 mt-2">Pode levar vários minutos para processar todos os capítulos</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {audioData && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-white font-semibold">{audioData.scripts.length} scripts gerados</h3>
+                    <p className="text-sm text-slate-400">Duração total estimada: {audioData.total_duration_minutes} minutos</p>
+                  </div>
+                  <Button variant="ghost" onClick={generateAllAudiobook} disabled={audioLoading} className="text-slate-500 hover:text-slate-300 text-sm">Regerar</Button>
+                </div>
+
+                {audioData.scripts.map((script: AudiobookChapterScript) => (
+                  <Card key={script.chapter_number} className="border-slate-700 bg-slate-900/50">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-white text-sm">
+                          Cap. {script.chapter_number}: {script.chapter_title}
+                        </CardTitle>
+                        <Badge className="bg-slate-800 text-slate-400 text-xs">
+                          ~{script.estimated_duration_minutes} min
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <p className="text-xs text-slate-500">{script.voice_notes}</p>
+                      {script.character_voices.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {script.character_voices.map((cv, i) => (
+                            <Badge key={i} className="bg-purple-900/30 text-purple-400 text-xs">
+                              {cv.character}: {cv.voice_direction}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      <details className="group">
+                        <summary className="text-xs text-[#93C5FD] cursor-pointer hover:text-white">
+                          Ver script de narração
+                        </summary>
+                        <div className="mt-2 p-3 bg-slate-800/50 rounded-lg text-sm text-slate-300 whitespace-pre-wrap max-h-64 overflow-y-auto">
+                          {script.narration_script}
+                        </div>
+                      </details>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             )}
           </TabsContent>
         </Tabs>

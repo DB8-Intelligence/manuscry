@@ -79,6 +79,9 @@ coversRouter.post('/generate', async (req: AuthenticatedRequest, res) => {
     const phase5Data: Phase5Data = {
       covers: coverData,
       biography: existing5.biography || null,
+      design: existing5.design || null,
+      metadata: existing5.metadata || null,
+      audiobook: existing5.audiobook || null,
     };
 
     await supabaseAdmin

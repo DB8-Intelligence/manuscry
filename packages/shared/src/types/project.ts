@@ -254,7 +254,146 @@ export interface BiographyData {
   generated_at: string | null;
 }
 
+// 5c — Book Designer
+
+export interface TrimSize {
+  width_inches: number;
+  height_inches: number;
+  name: string;
+  kdp_compatible: boolean;
+  ingram_compatible: boolean;
+}
+
+export interface InteriorSpecs {
+  paper_type: string;
+  bleed: boolean;
+  margins: {
+    top_inches: number;
+    bottom_inches: number;
+    inside_inches: number;
+    outside_inches: number;
+  };
+  gutter_inches: number;
+  estimated_page_count: number;
+  spine_width_inches: number;
+}
+
+export interface TypographySpecs {
+  body_font: string;
+  body_size_pt: number;
+  line_spacing: number;
+  heading_font: string;
+  heading_size_pt: number;
+  chapter_number_style: string;
+  drop_cap: boolean;
+  paragraph_indent_inches: number;
+  paragraph_spacing_pt: number;
+}
+
+export interface DustJacketSpecs {
+  required: boolean;
+  front_cover_width_inches: number;
+  spine_width_inches: number;
+  back_cover_width_inches: number;
+  total_width_inches: number;
+  height_inches: number;
+  bleed_inches: number;
+  barcode_area: string;
+}
+
+export interface EbookSpecs {
+  format: string;
+  reflowable: boolean;
+  toc_type: string;
+  cover_dimensions: string;
+  css_notes: string;
+}
+
+export interface BookDesignData {
+  trim_size: TrimSize;
+  interior: InteriorSpecs;
+  typography: TypographySpecs;
+  front_matter: string[];
+  back_matter: string[];
+  dust_jacket: DustJacketSpecs;
+  ebook: EbookSpecs;
+  recommendations: string;
+  generated_at: string | null;
+}
+
+// 5e — KDP Metadata Optimizer
+
+export interface KdpKeywords {
+  primary: string[];
+  long_tail: string[];
+  strategy: string;
+}
+
+export interface BisacCategory {
+  code: string;
+  name: string;
+  reason: string;
+}
+
+export interface KdpCategories {
+  bisac_primary: BisacCategory;
+  bisac_secondary: BisacCategory;
+  kdp_browse_categories: string[];
+}
+
+export interface APlusModule {
+  type: string;
+  title: string;
+  content: string;
+}
+
+export interface KdpMetadata {
+  keywords: KdpKeywords;
+  categories: KdpCategories;
+  description_html: string;
+  description_plain: string;
+  a_plus_content: {
+    headline: string;
+    modules: APlusModule[];
+  };
+  search_title: string;
+  series_info: {
+    is_series: boolean;
+    series_name: string | null;
+    volume_number: number | null;
+  };
+  age_range: string | null;
+  language: string;
+  generated_at: string | null;
+}
+
+// 4c — Audiobook Adapter
+
+export interface CharacterVoice {
+  character: string;
+  voice_direction: string;
+}
+
+export interface AudiobookChapterScript {
+  chapter_number: number;
+  chapter_title: string;
+  narration_script: string;
+  estimated_duration_minutes: number;
+  voice_notes: string;
+  character_voices: CharacterVoice[];
+  sound_cues: string[];
+}
+
+export interface AudiobookData {
+  scripts: AudiobookChapterScript[];
+  total_duration_minutes: number;
+  generated_at: string | null;
+}
+
 export interface Phase5Data {
   covers: CoverData | null;
   biography: BiographyData | null;
+  design: BookDesignData | null;
+  metadata: KdpMetadata | null;
+  audiobook: AudiobookData | null;
 }
