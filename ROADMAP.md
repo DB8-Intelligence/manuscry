@@ -43,7 +43,7 @@
 
 ## PRIORIDADE MÉDIA (diferenciação e retenção)
 
-### 6. Colaboração em Tempo Real — REGISTRADO
+### 6. Colaboração em Tempo Real — IMPLEMENTADO
 **Descrição:** Dois autores editando o mesmo manuscrito simultaneamente (como Google Docs).
 **Tecnologia:** WebSocket + CRDT (Yjs ou Automerge) para resolução de conflitos em tempo real.
 **Escopo:**
@@ -54,7 +54,7 @@
 **Impacto:** Abre mercado para ghostwriters profissionais e equipes editoriais.
 **Estimativa:** 2-3 semanas de desenvolvimento.
 
-### 7. Calendário Editorial — REGISTRADO
+### 7. Calendário Editorial — IMPLEMENTADO
 **Descrição:** Timeline visual com deadlines por fase do pipeline.
 **Escopo:**
 - Visualização tipo Gantt ou kanban com fases do pipeline
@@ -65,7 +65,7 @@
 **Impacto:** Organização profissional para autores sérios.
 **Estimativa:** 1 semana.
 
-### 8. Versioning / Histórico de Revisões — REGISTRADO
+### 8. Versioning / Histórico de Revisões — IMPLEMENTADO
 **Descrição:** Salvar versões do manuscrito (v1, v2, v3) com diff visual.
 **Escopo:**
 - Snapshot automático antes de cada edição/humanização
@@ -76,7 +76,7 @@
 **Impacto:** Segurança para o autor, essencial para edição profissional.
 **Estimativa:** 1 semana.
 
-### 9. AI Writing Coach — REGISTRADO
+### 9. AI Writing Coach — IMPLEMENTADO
 **Descrição:** Chat IA integrado no editor que sugere melhorias em tempo real.
 **Escopo:**
 - Sidebar de chat dentro do ManuscriptEditor
@@ -88,7 +88,7 @@
 **Impacto:** Diferenciação vs ferramentas "clique e gere". Posiciona como parceiro de escrita.
 **Estimativa:** 1 semana.
 
-### 10. Gamificação — REGISTRADO
+### 10. Gamificação — IMPLEMENTADO
 **Descrição:** Sistema de engajamento com badges, metas e leaderboard.
 **Escopo:**
 - Streaks diários de escrita (7 dias seguidos = badge)
@@ -169,7 +169,7 @@
 | Prioridade | Features | Implementado | A fazer | Estimativa total |
 |---|---|---|---|---|
 | Alta | 5 | 5 (código) | Expandir templates | 1 semana |
-| Média | 5 | 0 | 5 features | 5-7 semanas |
+| Média | 5 | 5 (código) | Frontend polish | 2-3 semanas |
 | Futura | 5 | 0 | 5 features | 15-20 semanas |
 | **Total** | **15** | **5** | **10** | **~21-28 semanas** |
 
