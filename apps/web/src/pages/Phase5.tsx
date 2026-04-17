@@ -8,6 +8,25 @@ import type {
 } from '@manuscry/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+interface PreflightCheck {
+  id: string;
+  category: string;
+  name: string;
+  description: string;
+  status: 'pass' | 'fail' | 'warn' | 'skip';
+  detail: string;
+}
+
+interface PreflightReport {
+  total_checks: number;
+  passed: number;
+  failed: number;
+  warnings: number;
+  skipped: number;
+  ready_to_publish: boolean;
+  checks: PreflightCheck[];
+}
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
@@ -296,6 +315,8 @@ export default function Phase5() {
   }
 
   const [exportLoading, setExportLoading] = useState<'epub' | 'pdf' | null>(null);
+  const [preflightReport, setPreflightReport] = useState<PreflightReport | null>(null);
+  const [preflightLoading, setPreflightLoading] = useState(false);
 
   async function downloadExport(format: 'epub' | 'pdf') {
     if (!id) return;
@@ -331,6 +352,20 @@ export default function Phase5() {
       setError(err instanceof Error ? err.message : `Erro ao exportar ${format.toUpperCase()}`);
     } finally {
       setExportLoading(null);
+    }
+  }
+
+  async function runPreflight() {
+    if (!id) return;
+    setPreflightLoading(true);
+    setError('');
+    try {
+      const report = await api.post<PreflightReport>('/api/production/preflight', { projectId: id });
+      setPreflightReport(report);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro no preflight');
+    } finally {
+      setPreflightLoading(false);
     }
   }
 
@@ -411,6 +446,17 @@ export default function Phase5() {
               Audiobook
               {audioData && (
                 <span className="ml-2 w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="preflight"
+              className="data-[state=active]:bg-[#1E3A8A] data-[state=active]:text-white"
+            >
+              Preflight
+              {preflightReport && (
+                <span className={`ml-2 w-2 h-2 rounded-full inline-block ${
+                  preflightReport.ready_to_publish ? 'bg-emerald-400' : 'bg-red-400'
+                }`} />
               )}
             </TabsTrigger>
             <TabsTrigger
@@ -879,6 +925,120 @@ export default function Phase5() {
                     </CardContent>
                   </Card>
                 ))}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ── PREFLIGHT TAB ── */}
+          <TabsContent value="preflight" className="space-y-6">
+            {!preflightReport && !preflightLoading && (
+              <Card className="border-slate-700 bg-slate-900/50 text-center py-12">
+                <CardContent className="space-y-4">
+                  <div className="text-4xl mb-2">{'\u2705'}</div>
+                  <h3 className="text-lg font-semibold text-white">KDP Preflight Validator</h3>
+                  <p className="text-sm text-slate-400 max-w-md mx-auto">
+                    Verifica 40 checks de compliance antes de exportar.
+                    Garante zero rejeições evitáveis na plataforma Amazon KDP.
+                  </p>
+                  <Button onClick={runPreflight} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-medium px-8">
+                    Executar Preflight
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {preflightLoading && (
+              <Card className="border-slate-700 bg-slate-900/50 text-center py-16">
+                <CardContent>
+                  <div className="animate-spin w-8 h-8 border-4 border-slate-600 border-t-amber-500 rounded-full mx-auto mb-4" />
+                  <p className="text-white font-medium">Verificando compliance KDP...</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {preflightReport && (
+              <div className="space-y-4">
+                {/* Summary card */}
+                <Card className={`border-slate-700 ${
+                  preflightReport.ready_to_publish
+                    ? 'bg-emerald-950/20 border-emerald-800/50'
+                    : 'bg-red-950/20 border-red-800/50'
+                }`}>
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className={`font-semibold text-lg ${preflightReport.ready_to_publish ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {preflightReport.ready_to_publish ? 'Pronto para publicar!' : 'Correções necessárias'}
+                        </h3>
+                        <p className="text-sm text-slate-400 mt-1">
+                          {preflightReport.total_checks} verificações executadas
+                        </p>
+                      </div>
+                      <div className="flex gap-4 text-center">
+                        <div>
+                          <div className="text-xl font-bold text-emerald-400">{preflightReport.passed}</div>
+                          <div className="text-[10px] text-slate-500">OK</div>
+                        </div>
+                        <div>
+                          <div className="text-xl font-bold text-red-400">{preflightReport.failed}</div>
+                          <div className="text-[10px] text-slate-500">Falhas</div>
+                        </div>
+                        <div>
+                          <div className="text-xl font-bold text-amber-400">{preflightReport.warnings}</div>
+                          <div className="text-[10px] text-slate-500">Avisos</div>
+                        </div>
+                        <div>
+                          <div className="text-xl font-bold text-slate-500">{preflightReport.skipped}</div>
+                          <div className="text-[10px] text-slate-500">N/A</div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Failures first, then warnings, then passes */}
+                {(['fail', 'warn', 'pass', 'skip'] as const).map((statusGroup) => {
+                  const items = preflightReport.checks.filter((c) => c.status === statusGroup);
+                  if (items.length === 0) return null;
+                  const labels = { fail: 'Falhas', warn: 'Avisos', pass: 'Aprovados', skip: 'Não verificados' };
+                  const colors = {
+                    fail: 'text-red-400 border-red-800/30',
+                    warn: 'text-amber-400 border-amber-800/30',
+                    pass: 'text-emerald-400 border-emerald-800/30',
+                    skip: 'text-slate-500 border-slate-700',
+                  };
+                  const icons = { fail: '\u274C', warn: '\u26A0\uFE0F', pass: '\u2705', skip: '\u23ED\uFE0F' };
+
+                  return (
+                    <div key={statusGroup}>
+                      <h4 className={`text-sm font-semibold mb-2 ${colors[statusGroup].split(' ')[0]}`}>
+                        {labels[statusGroup]} ({items.length})
+                      </h4>
+                      <div className="space-y-1.5">
+                        {items.map((c) => (
+                          <div key={c.id} className={`rounded-lg border px-4 py-3 ${colors[statusGroup]} bg-slate-900/50`}>
+                            <div className="flex items-start gap-2">
+                              <span className="text-sm mt-0.5">{icons[statusGroup]}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium text-white">{c.name}</span>
+                                  <Badge className="bg-slate-800 text-slate-500 text-[10px]">{c.category}</Badge>
+                                </div>
+                                <p className="text-xs text-slate-400 mt-0.5">{c.detail}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <div className="flex justify-between pt-4">
+                  <Button variant="ghost" onClick={runPreflight} disabled={preflightLoading} className="text-slate-500 hover:text-slate-300">
+                    Re-executar
+                  </Button>
+                </div>
               </div>
             )}
           </TabsContent>

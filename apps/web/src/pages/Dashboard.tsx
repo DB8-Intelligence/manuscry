@@ -105,6 +105,40 @@ export default function Dashboard() {
 
         {/* Content */}
         <main className="flex-1 p-8">
+          {/* Stats cards */}
+          {projects.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <Card className="border-slate-700 bg-slate-900/50">
+                <CardContent className="p-4">
+                  <p className="text-xs text-slate-500">Projetos</p>
+                  <p className="text-2xl font-bold text-white">{projects.length}</p>
+                </CardContent>
+              </Card>
+              <Card className="border-slate-700 bg-slate-900/50">
+                <CardContent className="p-4">
+                  <p className="text-xs text-slate-500">Em andamento</p>
+                  <p className="text-2xl font-bold text-amber-400">{projects.filter(p => p.status === 'active').length}</p>
+                </CardContent>
+              </Card>
+              <Card className="border-slate-700 bg-slate-900/50">
+                <CardContent className="p-4">
+                  <p className="text-xs text-slate-500">Publicados</p>
+                  <p className="text-2xl font-bold text-emerald-400">{projects.filter(p => p.status === 'published').length}</p>
+                </CardContent>
+              </Card>
+              <Card className="border-slate-700 bg-slate-900/50">
+                <CardContent className="p-4">
+                  <p className="text-xs text-slate-500">Fase média</p>
+                  <p className="text-2xl font-bold text-[#93C5FD]">
+                    {projects.length > 0
+                      ? (projects.reduce((sum, p) => sum + (p.current_phase || 0), 0) / projects.length).toFixed(1)
+                      : '0'}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           <div className="flex items-center justify-between mb-6">
             <p className="text-slate-400 text-sm">
               {projects.length === 0 ? 'Nenhum livro ainda' : `${projects.length} projeto${projects.length > 1 ? 's' : ''}`}

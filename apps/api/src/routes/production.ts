@@ -7,8 +7,9 @@ import { buildKdpMetadataPrompt } from '../services/prompts/phase5e.prompt.js';
 import { buildAudiobookAdapterPrompt } from '../services/prompts/phase4c.prompt.js';
 import { generateEpub } from '../services/epub.service.js';
 import { generatePdf } from '../services/pdf.service.js';
+import { runPreflightChecks, type PreflightReport } from '../services/preflight.service.js';
 import type {
-  Phase1Data, Phase2Data, Phase3Data, Phase4Data, Phase5Data,
+  Phase1Data, Phase2Data, Phase3Data, Phase4Data, Phase5Data, Project,
   BookDesignData, KdpMetadata,
   AudiobookChapterScript, AudiobookData, BiographyData,
 } from '@manuscry/shared';
@@ -302,6 +303,23 @@ productionRouter.post('/export/pdf', async (req: AuthenticatedRequest, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Length', pdfBuffer.length);
     res.send(pdfBuffer);
+  } catch (err) {
+    const e = err as Error & { statusCode?: number };
+    res.status(e.statusCode || 500).json({ error: e.message });
+  }
+});
+
+// ── PREFLIGHT VALIDATOR ──────────────────────────────────────────────────────
+
+// POST /api/production/preflight — run all compliance checks before export
+productionRouter.post('/preflight', async (req: AuthenticatedRequest, res) => {
+  const { projectId } = req.body as { projectId: string };
+  if (!projectId) { res.status(400).json({ error: 'projectId obrigatório' }); return; }
+
+  try {
+    const project = await getProject(projectId, req.userId!);
+    const report = runPreflightChecks(project as unknown as Project);
+    res.json(report);
   } catch (err) {
     const e = err as Error & { statusCode?: number };
     res.status(e.statusCode || 500).json({ error: e.message });
