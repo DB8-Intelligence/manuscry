@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../services/supabase.js';
+import { sendWelcomeEmail } from '../services/email.service.js';
 
 export const authRouter = Router();
 
@@ -35,6 +36,9 @@ authRouter.post('/register', async (req, res) => {
   if (profileError) {
     console.error('Failed to create user profile:', profileError);
   }
+
+  // Send welcome email (fire-and-forget)
+  sendWelcomeEmail(email, full_name || null).catch(() => {});
 
   // Sign in to get session token
   const anonClient = createClient(

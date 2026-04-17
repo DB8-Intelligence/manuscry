@@ -1,8 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import ErrorBoundary from '@/components/app/ErrorBoundary';
 import Auth from '@/pages/Auth';
 import AuthCallback from '@/pages/AuthCallback';
 import Dashboard from '@/pages/Dashboard';
+import Welcome from '@/pages/Welcome';
 import ProjectView from '@/pages/ProjectView';
 import Phase0 from '@/pages/Phase0';
 import Phase1 from '@/pages/Phase1';
@@ -11,6 +13,7 @@ import Phase3 from '@/pages/Phase3';
 import Phase4 from '@/pages/Phase4';
 import Phase5 from '@/pages/Phase5';
 import Settings from '@/pages/Settings';
+import NotFound from '@/pages/NotFound';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -50,25 +53,30 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/login" element={<PublicRoute><Auth /></PublicRoute>} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/login" element={<PublicRoute><Auth /></PublicRoute>} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
 
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/projects" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/projects/new" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+          <Route path="/welcome" element={<ProtectedRoute><Welcome /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/projects" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/projects/new" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
-        <Route path="/projects/:id" element={<ProtectedRoute><ProjectView /></ProtectedRoute>} />
-        <Route path="/projects/:id/phase-0" element={<ProtectedRoute><Phase0 /></ProtectedRoute>} />
-        <Route path="/projects/:id/phase-1" element={<ProtectedRoute><Phase1 /></ProtectedRoute>} />
-        <Route path="/projects/:id/phase-2" element={<ProtectedRoute><Phase2 /></ProtectedRoute>} />
-        <Route path="/projects/:id/phase-3" element={<ProtectedRoute><Phase3 /></ProtectedRoute>} />
-        <Route path="/projects/:id/phase-4" element={<ProtectedRoute><Phase4 /></ProtectedRoute>} />
-        <Route path="/projects/:id/phase-5" element={<ProtectedRoute><Phase5 /></ProtectedRoute>} />
-      </Routes>
-    </BrowserRouter>
+          <Route path="/projects/:id" element={<ProtectedRoute><ProjectView /></ProtectedRoute>} />
+          <Route path="/projects/:id/phase-0" element={<ProtectedRoute><Phase0 /></ProtectedRoute>} />
+          <Route path="/projects/:id/phase-1" element={<ProtectedRoute><Phase1 /></ProtectedRoute>} />
+          <Route path="/projects/:id/phase-2" element={<ProtectedRoute><Phase2 /></ProtectedRoute>} />
+          <Route path="/projects/:id/phase-3" element={<ProtectedRoute><Phase3 /></ProtectedRoute>} />
+          <Route path="/projects/:id/phase-4" element={<ProtectedRoute><Phase4 /></ProtectedRoute>} />
+          <Route path="/projects/:id/phase-5" element={<ProtectedRoute><Phase5 /></ProtectedRoute>} />
+
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }

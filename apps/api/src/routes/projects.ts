@@ -23,13 +23,39 @@ projectsRouter.get('/', async (req: AuthenticatedRequest, res) => {
   res.json({ projects: data });
 });
 
-// POST /api/projects — create new project
+// POST /api/projects — create new project (with plan limit check)
 projectsRouter.post('/', async (req: AuthenticatedRequest, res) => {
   const { name, market, genre, genre_mode } = req.body;
 
   if (!name) {
     res.status(400).json({ error: 'Project name is required' });
     return;
+  }
+
+  // Check plan limits
+  const { data: profile } = await supabaseAdmin
+    .from('users')
+    .select('plan, books_this_month, books_limit, trial_ends_at')
+    .eq('id', req.userId!)
+    .single();
+
+  if (profile) {
+    if (profile.plan === 'trial' && profile.trial_ends_at && new Date(profile.trial_ends_at) < new Date()) {
+      res.status(403).json({
+        error: 'Seu período trial expirou. Faça upgrade para continuar.',
+        upgrade_url: '/settings',
+      });
+      return;
+    }
+
+    const limit = profile.books_limit ?? 1;
+    if (limit > 0 && (profile.books_this_month ?? 0) >= limit) {
+      res.status(403).json({
+        error: `Limite de ${limit} livro(s)/mês atingido no plano ${profile.plan}. Faça upgrade para mais.`,
+        upgrade_url: '/settings',
+      });
+      return;
+    }
   }
 
   const { data, error } = await supabaseAdmin
@@ -47,6 +73,14 @@ projectsRouter.post('/', async (req: AuthenticatedRequest, res) => {
   if (error) {
     res.status(500).json({ error: error.message });
     return;
+  }
+
+  // Increment books_this_month
+  if (profile) {
+    await supabaseAdmin
+      .from('users')
+      .update({ books_this_month: (profile.books_this_month ?? 0) + 1 })
+      .eq('id', req.userId!);
   }
 
   res.status(201).json({ project: data });
