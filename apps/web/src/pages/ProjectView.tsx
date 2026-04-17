@@ -111,6 +111,21 @@ export default function ProjectView() {
             );
           })}
         </div>
+
+        {/* Social Studio link */}
+        <div className="mt-8">
+          <button
+            onClick={() => navigate(`/projects/${currentProject.id}/social`)}
+            className="w-full text-left rounded-xl border border-purple-800/30 bg-purple-950/10 p-5 hover:border-purple-700/50 transition-all"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <span className="text-xs font-mono text-purple-400">ADD-ON</span>
+              <Badge className="bg-purple-900/30 text-purple-400">R$39/rede</Badge>
+            </div>
+            <h3 className="font-semibold text-white mb-1">{'\u{1F3AC}'} Social Studio</h3>
+            <p className="text-sm text-slate-400">Crie reels, posts e carrosséis a partir do seu livro para impulsionar vendas</p>
+          </button>
+        </div>
       </main>
     </div>
   );

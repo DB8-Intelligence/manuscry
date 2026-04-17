@@ -10,6 +10,8 @@ import { coversRouter } from './routes/covers.js';
 import { biographyRouter } from './routes/biography.js';
 import { productionRouter } from './routes/production.js';
 import { billingRouter } from './routes/billing.js';
+import { socialRouter } from './routes/social.js';
+import { blogRouter } from './routes/blog.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -59,6 +61,8 @@ app.use('/api/covers', aiLimiter, coversRouter);
 app.use('/api/biography', aiLimiter, biographyRouter);
 app.use('/api/production', productionRouter);
 app.use('/api/billing', billingRouter);
+app.use('/api/social', aiLimiter, socialRouter);
+app.use('/api/blog', blogRouter);
 
 // --- 404 handler ---
 app.use((_req, res) => {

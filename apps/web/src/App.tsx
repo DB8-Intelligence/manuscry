@@ -13,7 +13,10 @@ import Phase2 from '@/pages/Phase2';
 import Phase3 from '@/pages/Phase3';
 import Phase4 from '@/pages/Phase4';
 import Phase5 from '@/pages/Phase5';
+import SocialStudio from '@/pages/SocialStudio';
 import Settings from '@/pages/Settings';
+import Blog from '@/pages/Blog';
+import BlogArticle from '@/pages/BlogArticle';
 import NotFound from '@/pages/NotFound';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -57,10 +60,14 @@ export default function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <Routes>
+          {/* Public */}
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<PublicRoute><Auth /></PublicRoute>} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/blog/:slug" element={<BlogArticle />} />
 
+          {/* Protected */}
           <Route path="/welcome" element={<ProtectedRoute><Welcome /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/projects" element={<Navigate to="/dashboard" replace />} />
@@ -74,6 +81,7 @@ export default function App() {
           <Route path="/projects/:id/phase-3" element={<ProtectedRoute><Phase3 /></ProtectedRoute>} />
           <Route path="/projects/:id/phase-4" element={<ProtectedRoute><Phase4 /></ProtectedRoute>} />
           <Route path="/projects/:id/phase-5" element={<ProtectedRoute><Phase5 /></ProtectedRoute>} />
+          <Route path="/projects/:id/social" element={<ProtectedRoute><SocialStudio /></ProtectedRoute>} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>

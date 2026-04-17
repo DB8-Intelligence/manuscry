@@ -249,6 +249,31 @@ export default function Settings() {
           </div>
         )}
 
+        {/* Social Add-on */}
+        <Card className="border-purple-800/30 bg-purple-950/10">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-white text-base">{'\u{1F3AC}'} Social Studio Add-on</CardTitle>
+              <Badge className="bg-purple-900/30 text-purple-400">R$39/mês por rede</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-slate-400 mb-4">
+              Gere reels, posts e carrosséis a partir dos seus livros para impulsionar vendas nas redes sociais.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              {(['Instagram', 'TikTok', 'Twitter/X', 'Facebook', 'LinkedIn']).map((name) => (
+                <div key={name} className="flex items-center gap-2 p-2 rounded-lg bg-slate-800/50 border border-slate-700">
+                  <span className="text-xs text-slate-400">{name}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500 mt-3">
+              Disponível como add-on em qualquer plano. Contate o suporte para ativar.
+            </p>
+          </CardContent>
+        </Card>
+
         {/* Session */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardHeader>
