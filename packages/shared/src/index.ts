@@ -9,4 +9,6 @@ export * from './types/features.js';
 export * from './types/collaboration.js';
 export * from './types/public-api.js';
 export * from './types/canva.js';
+export * from './types/white-label.js';
+export * from './types/ghostwriter.js';
 export * from './constants/plans.js';

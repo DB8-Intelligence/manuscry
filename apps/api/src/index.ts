@@ -18,7 +18,10 @@ import { analyticsRouter } from './routes/analytics.js';
 import { featuresRouter } from './routes/features.js';
 import { collaborationRouter } from './routes/collaboration.js';
 import { publicApiRouter, apiKeysManagementRouter } from './routes/public-api.js';
+import { sanitizeInput } from './middleware/sanitize.js';
 import { canvaRouter } from './routes/canva.js';
+import { whiteLabelRouter } from './routes/white-label.js';
+import { ghostwriterRouter } from './routes/ghostwriter.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -32,6 +35,7 @@ app.use(cors({
 // Raw body for Stripe webhooks (must be before json parser)
 app.use('/api/billing/webhook/stripe', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '10mb' }));
+app.use(sanitizeInput);
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -78,6 +82,8 @@ app.use('/api/collab', collaborationRouter);
 app.use('/api/api-keys', apiKeysManagementRouter);
 app.use('/v1', publicApiRouter);
 app.use('/api/canva', canvaRouter);
+app.use('/api/white-label', whiteLabelRouter);
+app.use('/api/ghostwriters', ghostwriterRouter);
 
 // --- 404 handler ---
 app.use((_req, res) => {
