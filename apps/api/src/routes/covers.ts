@@ -1,15 +1,141 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
+import { supabaseAdmin } from '../services/supabase.js';
+import { generateStructured } from '../services/claude.service.js';
+import { generateMultipleCovers } from '../services/fal.service.js';
+import { buildCoverPromptsPrompt } from '../services/prompts/phase5a.prompt.js';
+import type { Phase1Data, Phase5Data, CoverData, CoverVariation } from '@manuscry/shared';
 
 export const coversRouter = Router();
-
 coversRouter.use(requireAuth);
 
-// Stub — Phase 5a cover generation (Week 4)
-coversRouter.post('/generate', (_req, res) => {
-  res.status(501).json({
-    error: 'Not implemented yet',
-    module: 'covers',
-    eta: 'Week 4',
-  });
+// POST /api/covers/generate — generate 5 cover variations
+coversRouter.post('/generate', async (req: AuthenticatedRequest, res) => {
+  const { projectId } = req.body as { projectId: string };
+
+  if (!projectId) {
+    res.status(400).json({ error: 'projectId obrigatório' });
+    return;
+  }
+
+  try {
+    const { data: project, error: fetchErr } = await supabaseAdmin
+      .from('projects')
+      .select('*')
+      .eq('id', projectId)
+      .eq('user_id', req.userId!)
+      .single();
+
+    if (fetchErr || !project) {
+      res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+
+    const phasesCompleted: number[] = project.phases_completed || [];
+    if (!phasesCompleted.includes(4)) {
+      res.status(400).json({ error: 'Complete a Fase 4 (Escrita) antes de gerar capas' });
+      return;
+    }
+
+    const bookBible = project.phase_2_data as Record<string, unknown> | null;
+    if (!bookBible) {
+      res.status(400).json({ error: 'Book Bible não encontrado' });
+      return;
+    }
+
+    const phase1Data = project.phase_1_data as Phase1Data | null;
+    const bookProfile = (phase1Data?.book_profile || {}) as Record<string, unknown>;
+    const genre = project.genre || 'Fiction';
+    const market = (project.market || 'pt-br') as 'pt-br' | 'en';
+
+    // Step 1: Claude generates 5 cover prompts
+    const { system, user } = buildCoverPromptsPrompt(bookBible, bookProfile, genre, market);
+    const coverPlan = await generateStructured<{
+      negative_prompt: string;
+      covers: Array<Omit<CoverVariation, 'image_url' | 'image_width' | 'image_height' | 'selected'>>;
+    }>(system, user, 4096);
+
+    // Step 2: Fal.ai generates the actual images
+    const prompts = coverPlan.covers.map((c) => c.prompt);
+    const images = await generateMultipleCovers(prompts, coverPlan.negative_prompt);
+
+    // Merge plan + images
+    const covers: CoverVariation[] = coverPlan.covers.map((c, i) => ({
+      ...c,
+      image_url: images[i]?.url || null,
+      image_width: images[i]?.width || null,
+      image_height: images[i]?.height || null,
+      selected: false,
+    }));
+
+    const coverData: CoverData = {
+      negative_prompt: coverPlan.negative_prompt,
+      covers,
+      generated_at: new Date().toISOString(),
+    };
+
+    // Save to phase_5_data
+    const existing5 = (project.phase_5_data || {}) as Partial<Phase5Data>;
+    const phase5Data: Phase5Data = {
+      covers: coverData,
+      biography: existing5.biography || null,
+    };
+
+    await supabaseAdmin
+      .from('projects')
+      .update({ phase_5_data: phase5Data })
+      .eq('id', projectId);
+
+    res.json(coverData);
+  } catch (err) {
+    console.error('Cover generation error:', err);
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// POST /api/covers/select — select a cover variation
+coversRouter.post('/select', async (req: AuthenticatedRequest, res) => {
+  const { projectId, variationIndex } = req.body as {
+    projectId: string;
+    variationIndex: number;
+  };
+
+  if (!projectId || variationIndex === undefined) {
+    res.status(400).json({ error: 'projectId e variationIndex obrigatórios' });
+    return;
+  }
+
+  try {
+    const { data: project, error: fetchErr } = await supabaseAdmin
+      .from('projects')
+      .select('phase_5_data')
+      .eq('id', projectId)
+      .eq('user_id', req.userId!)
+      .single();
+
+    if (fetchErr || !project) {
+      res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+
+    const phase5Data = project.phase_5_data as Phase5Data | null;
+    if (!phase5Data?.covers?.covers?.[variationIndex]) {
+      res.status(400).json({ error: 'Variação não encontrada' });
+      return;
+    }
+
+    // Deselect all, select the chosen one
+    phase5Data.covers.covers.forEach((c, i) => {
+      c.selected = i === variationIndex;
+    });
+
+    await supabaseAdmin
+      .from('projects')
+      .update({ phase_5_data: phase5Data })
+      .eq('id', projectId);
+
+    res.json({ selected: variationIndex });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
 });

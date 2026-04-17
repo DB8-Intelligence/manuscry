@@ -14,7 +14,7 @@ export interface Project {
   phase_2_data: Phase2Data | null;
   phase_3_data: Phase3Data | null;
   phase_4_data: Phase4Data | null;
-  phase_5_data: Record<string, unknown> | null;
+  phase_5_data: Phase5Data | null;
 
   asin: string | null;
   isbn_ebook: string | null;
@@ -202,4 +202,59 @@ export interface WrittenChapter {
 export interface Phase4Data {
   chapters: WrittenChapter[];
   total_words_written: number;
+}
+
+// ── Phase 5 — Production Studio ──────────────────────────────────────────────
+
+// 5a — Cover Generator
+
+export interface CoverVariation {
+  variation: number;
+  style: string;
+  concept: string;
+  prompt: string;
+  color_palette: string[];
+  score: number;
+  score_reason: string;
+  image_url: string | null;
+  image_width: number | null;
+  image_height: number | null;
+  selected: boolean;
+}
+
+export interface CoverData {
+  negative_prompt: string;
+  covers: CoverVariation[];
+  generated_at: string | null;
+}
+
+// 5b — Author Biography
+
+export interface AuthorBios {
+  kdp_full: string;
+  back_cover: string;
+  social_media: string;
+  press_kit: string;
+  one_liner: string;
+}
+
+export interface PhotoSuggestions {
+  style: string;
+  clothing: string;
+  background: string;
+  mood: string;
+}
+
+export interface BiographyData {
+  author_name: string;
+  bios: AuthorBios;
+  photo_suggestions: PhotoSuggestions;
+  brand_keywords: string[];
+  tagline: string;
+  generated_at: string | null;
+}
+
+export interface Phase5Data {
+  covers: CoverData | null;
+  biography: BiographyData | null;
 }

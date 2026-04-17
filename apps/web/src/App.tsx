@@ -9,7 +9,7 @@ import Phase1 from '@/pages/Phase1';
 import Phase2 from '@/pages/Phase2';
 import Phase3 from '@/pages/Phase3';
 import Phase4 from '@/pages/Phase4';
-import PhaseStub from '@/pages/PhaseStub';
+import Phase5 from '@/pages/Phase5';
 import Settings from '@/pages/Settings';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -67,14 +67,7 @@ export default function App() {
         <Route path="/projects/:id/phase-2" element={<ProtectedRoute><Phase2 /></ProtectedRoute>} />
         <Route path="/projects/:id/phase-3" element={<ProtectedRoute><Phase3 /></ProtectedRoute>} />
         <Route path="/projects/:id/phase-4" element={<ProtectedRoute><Phase4 /></ProtectedRoute>} />
-        <Route
-          path="/projects/:id/phase-5"
-          element={
-            <ProtectedRoute>
-              <PhaseStub phase={5} name="Production Studio" description="Capas, biografia e produção KDP" eta="Semanas 4-5" />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/projects/:id/phase-5" element={<ProtectedRoute><Phase5 /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );
