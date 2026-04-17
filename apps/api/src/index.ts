@@ -14,6 +14,7 @@ import { socialRouter } from './routes/social.js';
 import { blogRouter } from './routes/blog.js';
 import { marketplaceRouter } from './routes/marketplace.js';
 import { royaltiesRouter } from './routes/royalties.js';
+import { analyticsRouter } from './routes/analytics.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -67,6 +68,7 @@ app.use('/api/social', aiLimiter, socialRouter);
 app.use('/api/blog', blogRouter);
 app.use('/api/marketplace', marketplaceRouter);
 app.use('/api/royalties', royaltiesRouter);
+app.use('/api/analytics', analyticsRouter);
 
 // --- 404 handler ---
 app.use((_req, res) => {
