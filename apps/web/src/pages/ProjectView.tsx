@@ -158,6 +158,21 @@ export default function ProjectView() {
           })()}
         </div>
 
+        {/* Editorial Calendar */}
+        <div className="mt-4">
+          <button
+            onClick={() => navigate(`/projects/${currentProject.id}/calendar`)}
+            className="w-full text-left rounded-xl border border-emerald-800/30 bg-emerald-950/10 p-5 hover:border-emerald-700/50 transition-all"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <span className="text-xs font-mono text-emerald-400">PLANEJAMENTO</span>
+              <Badge className="bg-emerald-900/30 text-emerald-400">{'\u{1F4C5}'} Timeline</Badge>
+            </div>
+            <h3 className="font-semibold text-white mb-1">Calendário Editorial</h3>
+            <p className="text-sm text-slate-400">Planeje deadlines por fase e veja o progresso visual do projeto</p>
+          </button>
+        </div>
+
         {/* Social Studio */}
         <div className="mt-4">
           <button

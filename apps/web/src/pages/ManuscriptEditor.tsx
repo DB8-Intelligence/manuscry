@@ -10,6 +10,8 @@ import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import AIWritingCoach from '@/components/app/AIWritingCoach';
+import VersionHistory from '@/components/app/VersionHistory';
 
 function ToolbarButton({ active, onClick, children, title }: {
   active?: boolean;
@@ -112,6 +114,8 @@ export default function ManuscriptEditor() {
   const [saveMsg, setSaveMsg] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [hasUnsaved, setHasUnsaved] = useState(false);
+  const [coachOpen, setCoachOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     if (id) fetchProject(id);
@@ -245,6 +249,16 @@ export default function ManuscriptEditor() {
                 {saveMsg}
               </Badge>
             )}
+            {selectedChapter !== null && (
+              <>
+                <Button size="sm" variant="outline" onClick={() => setHistoryOpen(true)} className="border-slate-600 text-slate-300 h-8 text-xs">
+                  {'\u{1F4DC}'} Histórico
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setCoachOpen(true)} className="border-purple-800 text-purple-400 h-8 text-xs">
+                  {'\u{1F9E0}'} Coach
+                </Button>
+              </>
+            )}
             <Button size="sm" onClick={handleSave} disabled={saving || !hasUnsaved || selectedChapter === null} className="bg-[#1E3A8A] hover:bg-[#1E40AF] text-white h-8 text-xs">
               {saving ? 'Salvando...' : 'Salvar'}
             </Button>
@@ -336,6 +350,25 @@ export default function ManuscriptEditor() {
           )}
         </main>
       </div>
+
+      {/* AI Writing Coach sidebar */}
+      {coachOpen && id && (
+        <AIWritingCoach
+          projectId={id}
+          chapterNumber={selectedChapter}
+          onClose={() => setCoachOpen(false)}
+        />
+      )}
+
+      {/* Version History modal */}
+      {historyOpen && id && selectedChapter !== null && (
+        <VersionHistory
+          projectId={id}
+          chapterNumber={selectedChapter}
+          onClose={() => setHistoryOpen(false)}
+          onRestored={() => { fetchProject(id); setHistoryOpen(false); }}
+        />
+      )}
     </div>
   );
 }

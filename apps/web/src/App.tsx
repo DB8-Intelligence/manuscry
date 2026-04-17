@@ -16,6 +16,8 @@ import Phase5 from '@/pages/Phase5';
 import SocialStudio from '@/pages/SocialStudio';
 import ManuscriptEditor from '@/pages/ManuscriptEditor';
 import UploadManuscript from '@/pages/UploadManuscript';
+import Achievements from '@/pages/Achievements';
+import EditorialCalendarPage from '@/pages/EditorialCalendar';
 import Settings from '@/pages/Settings';
 import Blog from '@/pages/Blog';
 import BlogArticle from '@/pages/BlogArticle';
@@ -83,6 +85,7 @@ export default function App() {
           <Route path="/upload" element={<ProtectedRoute><UploadManuscript /></ProtectedRoute>} />
           <Route path="/royalties" element={<ProtectedRoute><Royalties /></ProtectedRoute>} />
           <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+          <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
           <Route path="/projects/:id" element={<ProtectedRoute><ProjectView /></ProtectedRoute>} />
@@ -94,6 +97,7 @@ export default function App() {
           <Route path="/projects/:id/phase-5" element={<ProtectedRoute><Phase5 /></ProtectedRoute>} />
           <Route path="/projects/:id/social" element={<ProtectedRoute><SocialStudio /></ProtectedRoute>} />
           <Route path="/projects/:id/editor" element={<ProtectedRoute><ManuscriptEditor /></ProtectedRoute>} />
+          <Route path="/projects/:id/calendar" element={<ProtectedRoute><EditorialCalendarPage /></ProtectedRoute>} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>
