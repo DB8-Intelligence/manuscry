@@ -162,12 +162,15 @@ export default function Landing() {
           </Button>
           <Button
             variant="outline"
-            onClick={() => { document.getElementById('pipeline')?.scrollIntoView({ behavior: 'smooth' }); }}
+            onClick={() => navigate('/login')}
             className="border-slate-600 text-slate-300 hover:text-white px-8 py-6 text-lg"
           >
-            Ver como funciona
+            {'\u{1F4C4}'} Já tenho um manuscrito
           </Button>
         </div>
+        <p className="text-xs text-slate-600 mt-2">
+          Tem um rascunho ou ideia? Faça upload e a IA completa o resto.
+        </p>
 
         {/* Social proof numbers */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-2xl mx-auto pt-8 border-t border-slate-800">

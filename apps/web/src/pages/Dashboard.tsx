@@ -143,9 +143,18 @@ export default function Dashboard() {
             <p className="text-slate-400 text-sm">
               {projects.length === 0 ? 'Nenhum livro ainda' : `${projects.length} projeto${projects.length > 1 ? 's' : ''}`}
             </p>
-            <Button onClick={() => setModalOpen(true)} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-medium">
-              + Novo Livro
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => navigate('/upload')}
+                className="border-slate-600 text-slate-300 hover:text-white"
+              >
+                {'\u{1F4C4}'} Importar manuscrito
+              </Button>
+              <Button onClick={() => setModalOpen(true)} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-medium">
+                + Novo Livro
+              </Button>
+            </div>
             <Dialog open={modalOpen} onOpenChange={setModalOpen}>
               <DialogContent className="bg-slate-900 border-slate-700 text-white">
                 <DialogHeader>

@@ -15,6 +15,7 @@ import Phase4 from '@/pages/Phase4';
 import Phase5 from '@/pages/Phase5';
 import SocialStudio from '@/pages/SocialStudio';
 import ManuscriptEditor from '@/pages/ManuscriptEditor';
+import UploadManuscript from '@/pages/UploadManuscript';
 import Settings from '@/pages/Settings';
 import Blog from '@/pages/Blog';
 import BlogArticle from '@/pages/BlogArticle';
@@ -73,6 +74,7 @@ export default function App() {
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/projects" element={<Navigate to="/dashboard" replace />} />
           <Route path="/projects/new" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/upload" element={<ProtectedRoute><UploadManuscript /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
           <Route path="/projects/:id" element={<ProtectedRoute><ProjectView /></ProtectedRoute>} />
