@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import CollaboratorsModal from '@/components/app/CollaboratorsModal';
 import { useProjectStore } from '@/stores/projectStore';
 import { PIPELINE_PHASES } from '@manuscry/shared';
 import type { Phase4Data, Phase5Data, CoverData } from '@manuscry/shared';
@@ -33,6 +34,7 @@ export default function ProjectView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { currentProject, loading, fetchProject } = useProjectStore();
+  const [collabOpen, setCollabOpen] = useState(false);
 
   useEffect(() => {
     if (id) fetchProject(id);
@@ -71,6 +73,14 @@ export default function ProjectView() {
             <span className="text-sm text-slate-500">
               {phasesCompleted.length}/6 fases completas
             </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setCollabOpen(true)}
+              className="border-slate-600 text-slate-300 h-7 text-xs ml-auto"
+            >
+              {'\u{1F465}'} Colaboradores
+            </Button>
           </div>
         </div>
       </header>
@@ -188,6 +198,10 @@ export default function ProjectView() {
           </button>
         </div>
       </main>
+
+      {collabOpen && (
+        <CollaboratorsModal projectId={currentProject.id} onClose={() => setCollabOpen(false)} />
+      )}
     </div>
   );
 }

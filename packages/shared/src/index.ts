@@ -7,4 +7,5 @@ export * from './types/royalties.js';
 export * from './types/analytics.js';
 export * from './types/features.js';
 export * from './types/collaboration.js';
+export * from './types/public-api.js';
 export * from './constants/plans.js';

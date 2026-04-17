@@ -149,7 +149,7 @@
 **Impacto:** Capas e materiais de maior qualidade sem sair da plataforma.
 **Estimativa:** 2 semanas.
 
-### 15. API Pública para Desenvolvedores — REGISTRADO
+### 15. API Pública para Desenvolvedores — IMPLEMENTADO
 **Descrição:** Permitir que terceiros construam sobre o pipeline do Manuscry.
 **Escopo:**
 - API REST documentada (Swagger/OpenAPI)

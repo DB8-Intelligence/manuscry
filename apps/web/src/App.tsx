@@ -17,6 +17,7 @@ import SocialStudio from '@/pages/SocialStudio';
 import ManuscriptEditor from '@/pages/ManuscriptEditor';
 import UploadManuscript from '@/pages/UploadManuscript';
 import Achievements from '@/pages/Achievements';
+import Developers from '@/pages/Developers';
 import EditorialCalendarPage from '@/pages/EditorialCalendar';
 import Settings from '@/pages/Settings';
 import Blog from '@/pages/Blog';
@@ -86,6 +87,7 @@ export default function App() {
           <Route path="/royalties" element={<ProtectedRoute><Royalties /></ProtectedRoute>} />
           <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
           <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
+          <Route path="/developers" element={<ProtectedRoute><Developers /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
           <Route path="/projects/:id" element={<ProtectedRoute><ProjectView /></ProtectedRoute>} />
