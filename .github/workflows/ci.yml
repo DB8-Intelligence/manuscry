@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main, production]
+  pull_request:
+    branches: [main, production]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck API
+        run: pnpm --filter @manuscry/api exec tsc --noEmit
+
+      - name: Typecheck Web
+        run: pnpm --filter @manuscry/web exec tsc -p tsconfig.app.json --noEmit
+
+      - name: Build API
+        run: pnpm --filter @manuscry/api build
+
+      - name: Build Web
+        run: pnpm --filter @manuscry/web build
