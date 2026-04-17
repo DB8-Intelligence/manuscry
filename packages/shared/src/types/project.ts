@@ -47,67 +47,6 @@ export interface Phase0Data {
   market_summary: string;
   themes: Phase0Theme[];
   recommendation: string;
-  selected_theme?: Phase0Theme;
-}
-
-export interface Phase1Data {
-  selected_theme_title: string;
-  target_audience: string;
-  unique_book_angle: string;
-  promise: string;
-  positioning_statement: string;
-  validation_checklist: string[];
-  uvp_score: number;
-}
-
-export interface Phase2ChapterSeed {
-  chapter: number;
-  title: string;
-  goal: string;
-}
-
-export interface Phase2Data {
-  working_title: string;
-  subtitle: string;
-  premise: string;
-  author_voice: string;
-  target_word_count: number;
-  core_message: string;
-  reader_transformation: string;
-  chapters_seed: Phase2ChapterSeed[];
-  book_bible: string;
-}
-
-export interface Phase3ChapterPlan {
-  chapter: number;
-  title: string;
-  summary: string;
-  target_words: number;
-  hook: string;
-}
-
-export interface Phase3Data {
-  narrative_structure: string;
-  pacing_notes: string;
-  ending_strategy: string;
-  tension_map: string[];
-  chapter_plan: Phase3ChapterPlan[];
-}
-
-export type Phase4ChapterStatus = 'pending' | 'streaming' | 'draft' | 'done';
-
-export interface Phase4Chapter {
-  chapter: number;
-  title: string;
-  content: string;
-  word_count: number;
-  status: Phase4ChapterStatus;
-  updated_at: string;
-}
-
-export interface Phase4Data {
-  chapters: Phase4Chapter[];
-  total_words: number;
 }
 
 export interface CreateProjectInput {
