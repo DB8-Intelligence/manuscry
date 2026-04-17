@@ -1045,6 +1045,54 @@ export default function Phase5() {
 
           {/* ── EXPORT TAB ── */}
           <TabsContent value="export" className="space-y-6">
+            {/* Auto-preflight on export tab */}
+            {!preflightReport && !preflightLoading && hasWrittenChapters && (
+              <Card className="border-amber-800/30 bg-amber-950/10">
+                <CardContent className="p-5 text-center space-y-3">
+                  <p className="text-amber-200/80 text-sm">
+                    Antes de exportar, execute o Preflight para garantir compliance KDP.
+                  </p>
+                  <Button onClick={runPreflight} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-medium">
+                    Verificar compliance
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {preflightLoading && (
+              <Card className="border-slate-700 bg-slate-900/50 text-center py-8">
+                <CardContent>
+                  <div className="animate-spin w-6 h-6 border-2 border-slate-600 border-t-amber-500 rounded-full mx-auto mb-3" />
+                  <p className="text-white text-sm">Verificando compliance...</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {preflightReport && preflightReport.failed > 0 && (
+              <Card className="border-red-800/50 bg-red-950/20">
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-xl">{'\u274C'}</span>
+                    <div>
+                      <h4 className="text-red-400 font-semibold">
+                        {preflightReport.failed} falha(s) encontrada(s)
+                      </h4>
+                      <p className="text-xs text-slate-400">
+                        Corrija os itens na aba Preflight antes de exportar
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    {preflightReport.checks.filter((c) => c.status === 'fail').map((c) => (
+                      <p key={c.id} className="text-xs text-red-300/80">
+                        {'\u2022'} {c.name}: {c.detail}
+                      </p>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <Card className="border-slate-700 bg-slate-900/50">
               <CardHeader>
                 <CardTitle className="text-white text-base">Exportar Livro</CardTitle>
@@ -1061,7 +1109,6 @@ export default function Phase5() {
 
                 {hasWrittenChapters && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* EPUB */}
                     <Card className="border-slate-700 bg-slate-800/50">
                       <CardContent className="p-5 space-y-3">
                         <div className="flex items-center gap-3">
@@ -1080,15 +1127,14 @@ export default function Phase5() {
                         </ul>
                         <Button
                           onClick={() => downloadExport('epub')}
-                          disabled={exportLoading !== null}
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                          disabled={exportLoading !== null || (preflightReport !== null && preflightReport.failed > 0)}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
                         >
                           {exportLoading === 'epub' ? 'Gerando EPUB...' : 'Baixar EPUB'}
                         </Button>
                       </CardContent>
                     </Card>
 
-                    {/* PDF */}
                     <Card className="border-slate-700 bg-slate-800/50">
                       <CardContent className="p-5 space-y-3">
                         <div className="flex items-center gap-3">
@@ -1107,8 +1153,8 @@ export default function Phase5() {
                         </ul>
                         <Button
                           onClick={() => downloadExport('pdf')}
-                          disabled={exportLoading !== null}
-                          className="w-full bg-red-600 hover:bg-red-700 text-white"
+                          disabled={exportLoading !== null || (preflightReport !== null && preflightReport.failed > 0)}
+                          className="w-full bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
                         >
                           {exportLoading === 'pdf' ? 'Gerando PDF...' : 'Baixar PDF'}
                         </Button>
@@ -1117,10 +1163,11 @@ export default function Phase5() {
                   </div>
                 )}
 
-                {hasWrittenChapters && (
-                  <p className="text-xs text-slate-500 text-center">
-                    Os arquivos são gerados sob demanda. Gere os specs de Design primeiro para PDF otimizado.
-                  </p>
+                {hasWrittenChapters && preflightReport && preflightReport.failed === 0 && (
+                  <div className="flex items-center gap-2 justify-center text-xs text-emerald-400">
+                    <span>{'\u2705'}</span>
+                    <span>Preflight OK — {preflightReport.passed}/{preflightReport.total_checks} checks aprovados</span>
+                  </div>
                 )}
               </CardContent>
             </Card>

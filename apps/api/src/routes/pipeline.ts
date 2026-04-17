@@ -396,6 +396,60 @@ pipelineRouter.post('/phase4/write', async (req: AuthenticatedRequest, res) => {
   }
 });
 
+// POST /api/pipeline/phase4/save — manually save edited chapter content
+pipelineRouter.post('/phase4/save', async (req: AuthenticatedRequest, res) => {
+  const { projectId, chapterNumber, content } = req.body as {
+    projectId: string;
+    chapterNumber: number;
+    content: string;
+  };
+
+  if (!projectId || chapterNumber === undefined || content === undefined) {
+    res.status(400).json({ error: 'projectId, chapterNumber e content obrigatórios' });
+    return;
+  }
+
+  try {
+    const project = await getOwnedProject(projectId, req.userId!);
+    const phase4Data = project.phase_4_data as Phase4Data | null;
+    if (!phase4Data?.chapters) {
+      res.status(400).json({ error: 'Nenhum dado de escrita encontrado' });
+      return;
+    }
+
+    const chapterIdx = phase4Data.chapters.findIndex(
+      (ch: WrittenChapter) => ch.number === chapterNumber,
+    );
+    if (chapterIdx < 0) {
+      res.status(404).json({ error: `Capítulo ${chapterNumber} não encontrado` });
+      return;
+    }
+
+    const wordCount = content.split(/\s+/).filter(Boolean).length;
+
+    phase4Data.chapters[chapterIdx] = {
+      ...phase4Data.chapters[chapterIdx],
+      content,
+      word_count: wordCount,
+    };
+
+    phase4Data.total_words_written = phase4Data.chapters
+      .filter((ch: WrittenChapter) => ch.status !== 'pending')
+      .reduce((sum: number, ch: WrittenChapter) => sum + ch.word_count, 0);
+
+    await savePhaseData(projectId, 4, phase4Data);
+
+    res.json({
+      chapter_number: chapterNumber,
+      word_count: wordCount,
+      total_words_written: phase4Data.total_words_written,
+    });
+  } catch (err) {
+    const e = err as Error & { statusCode?: number };
+    res.status(e.statusCode || 500).json({ error: e.message });
+  }
+});
+
 // POST /api/pipeline/phase4/humanize — humanize a written chapter via SSE
 pipelineRouter.post('/phase4/humanize', async (req: AuthenticatedRequest, res) => {
   const { projectId, chapterNumber } = req.body as {

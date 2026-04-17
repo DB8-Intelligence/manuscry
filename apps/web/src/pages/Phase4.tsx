@@ -21,13 +21,20 @@ export default function Phase4() {
   const [streamedText, setStreamedText] = useState('');
   const [streamError, setStreamError] = useState('');
   const [viewingChapter, setViewingChapter] = useState<number | null>(null);
+
+  // Editor state
+  const [editing, setEditing] = useState(false);
+  const [editContent, setEditContent] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
+
   const textRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (id) fetchProject(id);
   }, [id, fetchProject]);
 
-  // Auto-scroll while streaming
   useEffect(() => {
     if (streamState === 'writing' || streamState === 'humanizing') {
       textRef.current?.scrollTo({ top: textRef.current.scrollHeight });
@@ -53,8 +60,48 @@ export default function Phase4() {
     [activeChapter, streamState, getWrittenChapter],
   );
 
+  const isStreaming = streamState === 'writing' || streamState === 'humanizing';
+
+  function enterEditMode() {
+    if (!viewingChapter || isStreaming) return;
+    const written = getWrittenChapter(viewingChapter);
+    if (!written?.content) return;
+    setEditContent(written.content);
+    setEditing(true);
+    setSaveMessage('');
+    setTimeout(() => editorRef.current?.focus(), 50);
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+    setEditContent('');
+    setSaveMessage('');
+  }
+
+  async function saveEdit() {
+    if (!id || !viewingChapter) return;
+    setSaving(true);
+    setSaveMessage('');
+    try {
+      await api.post('/api/pipeline/phase4/save', {
+        projectId: id,
+        chapterNumber: viewingChapter,
+        content: editContent,
+      });
+      await fetchProject(id);
+      setEditing(false);
+      setSaveMessage('Salvo');
+      setTimeout(() => setSaveMessage(''), 3000);
+    } catch (err) {
+      setSaveMessage(err instanceof Error ? err.message : 'Erro ao salvar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function writeChapter(chapterNumber: number) {
-    if (!id || streamState === 'writing' || streamState === 'humanizing') return;
+    if (!id || isStreaming) return;
+    if (editing) cancelEdit();
 
     setActiveChapter(chapterNumber);
     setStreamState('writing');
@@ -69,10 +116,7 @@ export default function Phase4() {
         (text) => setStreamedText((prev) => prev + text),
         () => {
           setStreamState('done');
-          // Re-fetch project to get updated phase_4_data
-          fetchProject(id!).then(() => {
-            setActiveChapter(null);
-          });
+          fetchProject(id!).then(() => { setActiveChapter(null); });
         },
       );
     } catch (err) {
@@ -82,7 +126,8 @@ export default function Phase4() {
   }
 
   async function humanizeChapter(chapterNumber: number) {
-    if (!id || streamState === 'writing' || streamState === 'humanizing') return;
+    if (!id || isStreaming) return;
+    if (editing) cancelEdit();
 
     setActiveChapter(chapterNumber);
     setStreamState('humanizing');
@@ -97,9 +142,7 @@ export default function Phase4() {
         (text) => setStreamedText((prev) => prev + text),
         () => {
           setStreamState('done');
-          fetchProject(id!).then(() => {
-            setActiveChapter(null);
-          });
+          fetchProject(id!).then(() => { setActiveChapter(null); });
         },
       );
     } catch (err) {
@@ -132,14 +175,18 @@ export default function Phase4() {
   const progressPercent = totalChapters > 0 ? (writtenCount / totalChapters) * 100 : 0;
   const allWritten = writtenCount >= totalChapters;
 
+  const isViewingStream = activeChapter === viewingChapter && streamedText;
   const viewedContent = viewingChapter !== null
-    ? (activeChapter === viewingChapter && streamedText
-        ? streamedText
-        : getWrittenChapter(viewingChapter)?.content || '')
+    ? (isViewingStream ? streamedText : getWrittenChapter(viewingChapter)?.content || '')
     : '';
   const viewedOutline = viewingChapter !== null
     ? phase3Data.chapters.find((ch) => ch.number === viewingChapter)
     : null;
+  const viewedWritten = viewingChapter !== null ? getWrittenChapter(viewingChapter) : null;
+
+  const editorWordCount = editing
+    ? editContent.split(/\s+/).filter(Boolean).length
+    : viewedContent.split(/\s+/).filter(Boolean).length;
 
   const STATUS_BADGES: Record<string, { text: string; className: string }> = {
     pending: { text: 'Pendente', className: 'bg-slate-800 text-slate-500' },
@@ -165,7 +212,7 @@ export default function Phase4() {
             <h1 className="text-xl font-bold text-white">Writing Engine</h1>
           </div>
           <p className="text-sm text-slate-400 mt-1">
-            Escrita capítulo a capítulo com streaming em tempo real
+            Escrita, edição e humanização capítulo a capítulo
           </p>
         </div>
       </header>
@@ -193,7 +240,7 @@ export default function Phase4() {
         </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Chapter list — left column */}
+          {/* Chapter list */}
           <div className="lg:col-span-1 space-y-2">
             <h3 className="text-white font-semibold mb-3 text-sm">Capítulos</h3>
             <div className="space-y-1.5 max-h-[70vh] overflow-y-auto pr-1">
@@ -202,9 +249,8 @@ export default function Phase4() {
                 const badge = STATUS_BADGES[status] || STATUS_BADGES.pending;
                 const isViewing = viewingChapter === outline.number;
                 const written = getWrittenChapter(outline.number);
-                const canWrite = status === 'pending' || status === 'completed';
+                const canWrite = status === 'pending' || status === 'completed' || status === 'humanized';
                 const canHumanize = status === 'completed';
-                const isBusy = streamState === 'writing' || streamState === 'humanizing';
 
                 return (
                   <div
@@ -216,6 +262,7 @@ export default function Phase4() {
                     }`}
                     onClick={() => {
                       if (written?.content || (activeChapter === outline.number && streamedText)) {
+                        if (editing) cancelEdit();
                         setViewingChapter(outline.number);
                       }
                     }}
@@ -233,10 +280,10 @@ export default function Phase4() {
                         <Button
                           size="sm"
                           onClick={(e) => { e.stopPropagation(); writeChapter(outline.number); }}
-                          disabled={isBusy}
+                          disabled={isStreaming}
                           className="h-6 text-xs bg-amber-500 hover:bg-amber-600 text-slate-900 px-2"
                         >
-                          {status === 'completed' ? 'Reescrever' : 'Escrever'}
+                          {status === 'pending' ? 'Escrever' : 'Reescrever'}
                         </Button>
                       )}
                       {canHumanize && (
@@ -244,7 +291,7 @@ export default function Phase4() {
                           size="sm"
                           variant="outline"
                           onClick={(e) => { e.stopPropagation(); humanizeChapter(outline.number); }}
-                          disabled={isBusy}
+                          disabled={isStreaming}
                           className="h-6 text-xs border-slate-600 text-slate-300 px-2"
                         >
                           Humanizar
@@ -257,7 +304,7 @@ export default function Phase4() {
             </div>
           </div>
 
-          {/* Content viewer — right column */}
+          {/* Content viewer / editor */}
           <div className="lg:col-span-2">
             {viewingChapter === null && streamState === 'idle' && (
               <Card className="border-slate-700 bg-slate-900/50 text-center py-20">
@@ -268,7 +315,7 @@ export default function Phase4() {
                   </h3>
                   <p className="text-sm text-slate-400 max-w-sm mx-auto">
                     Clique em "Escrever" em qualquer capítulo da lista.
-                    Recomendamos escrever em ordem para manter consistência narrativa.
+                    Após escrito, clique em "Editar" para ajustes manuais.
                   </p>
                 </CardContent>
               </Card>
@@ -287,63 +334,115 @@ export default function Phase4() {
                         &middot; ~{viewedOutline?.estimated_words?.toLocaleString()} palavras alvo
                       </p>
                     </div>
-                    {activeChapter === viewingChapter && streamState === 'writing' && (
-                      <Badge className="bg-amber-900/30 text-amber-400 animate-pulse">
-                        Escrevendo...
-                      </Badge>
-                    )}
-                    {activeChapter === viewingChapter && streamState === 'humanizing' && (
-                      <Badge className="bg-purple-900/30 text-purple-400 animate-pulse">
-                        Humanizando...
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {activeChapter === viewingChapter && streamState === 'writing' && (
+                        <Badge className="bg-amber-900/30 text-amber-400 animate-pulse">Escrevendo...</Badge>
+                      )}
+                      {activeChapter === viewingChapter && streamState === 'humanizing' && (
+                        <Badge className="bg-purple-900/30 text-purple-400 animate-pulse">Humanizando...</Badge>
+                      )}
+                      {editing && (
+                        <Badge className="bg-blue-900/30 text-blue-400">Editando</Badge>
+                      )}
+                      {/* Edit/Save buttons */}
+                      {viewedWritten?.content && !isStreaming && !editing && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={enterEditMode}
+                          className="h-7 text-xs border-slate-600 text-slate-300"
+                        >
+                          Editar
+                        </Button>
+                      )}
+                      {editing && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={cancelEdit}
+                            className="h-7 text-xs text-slate-400"
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={saveEdit}
+                            disabled={saving}
+                            className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                          >
+                            {saving ? 'Salvando...' : 'Salvar'}
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div
-                    ref={textRef}
-                    className="p-6 max-h-[60vh] overflow-y-auto prose prose-invert prose-sm max-w-none"
-                  >
-                    {viewedContent ? (
-                      <div className="whitespace-pre-wrap text-slate-300 leading-relaxed text-[15px]">
-                        {viewedContent}
-                        {(streamState === 'writing' || streamState === 'humanizing') &&
-                          activeChapter === viewingChapter && (
-                          <span className="inline-block w-2 h-5 bg-amber-500 animate-pulse ml-0.5 align-text-bottom" />
+                  {/* Edit mode */}
+                  {editing && (
+                    <textarea
+                      ref={editorRef}
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      className="w-full p-6 bg-transparent text-slate-300 text-[15px] leading-relaxed resize-none focus:outline-none min-h-[60vh] max-h-[70vh] overflow-y-auto"
+                      spellCheck={false}
+                    />
+                  )}
+
+                  {/* Read mode */}
+                  {!editing && (
+                    <div
+                      ref={textRef}
+                      className="p-6 max-h-[60vh] overflow-y-auto"
+                    >
+                      {viewedContent ? (
+                        <div className="whitespace-pre-wrap text-slate-300 leading-relaxed text-[15px]">
+                          {viewedContent}
+                          {isStreaming && activeChapter === viewingChapter && (
+                            <span className="inline-block w-2 h-5 bg-amber-500 animate-pulse ml-0.5 align-text-bottom" />
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center py-12 text-slate-500">
+                          <p>Capítulo ainda não escrito</p>
+                          <Button
+                            onClick={() => writeChapter(viewingChapter)}
+                            disabled={isStreaming}
+                            className="mt-3 bg-amber-500 hover:bg-amber-600 text-slate-900"
+                          >
+                            Escrever agora
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Footer */}
+                  {(viewedContent || editing) && (
+                    <div className="border-t border-slate-800 px-6 py-3 flex items-center justify-between text-xs text-slate-500">
+                      <span>{editorWordCount.toLocaleString()} palavras</span>
+                      <div className="flex items-center gap-2">
+                        {saveMessage && (
+                          <Badge className={saveMessage === 'Salvo'
+                            ? 'bg-emerald-900/30 text-emerald-400 text-xs'
+                            : 'bg-red-900/30 text-red-400 text-xs'
+                          }>
+                            {saveMessage}
+                          </Badge>
+                        )}
+                        {streamState === 'done' && activeChapter === viewingChapter && !saveMessage && (
+                          <Badge className="bg-emerald-900/30 text-emerald-400 text-xs">
+                            Salvo automaticamente
+                          </Badge>
                         )}
                       </div>
-                    ) : (
-                      <div className="text-center py-12 text-slate-500">
-                        <p>Capítulo ainda não escrito</p>
-                        <Button
-                          onClick={() => writeChapter(viewingChapter)}
-                          disabled={streamState === 'writing' || streamState === 'humanizing'}
-                          className="mt-3 bg-amber-500 hover:bg-amber-600 text-slate-900"
-                        >
-                          Escrever agora
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Word count footer */}
-                  {viewedContent && (
-                    <div className="border-t border-slate-800 px-6 py-3 flex items-center justify-between text-xs text-slate-500">
-                      <span>
-                        {viewedContent.split(/\s+/).filter(Boolean).length.toLocaleString()} palavras
-                      </span>
-                      {streamState === 'done' && activeChapter === viewingChapter && (
-                        <Badge className="bg-emerald-900/30 text-emerald-400 text-xs">
-                          Salvo automaticamente
-                        </Badge>
-                      )}
                     </div>
                   )}
                 </CardContent>
               </Card>
             )}
 
-            {/* Error */}
             {streamState === 'error' && streamError && (
               <div className="bg-red-900/30 border border-red-800 text-red-300 p-4 rounded-lg mt-4">
                 {streamError}
@@ -352,7 +451,6 @@ export default function Phase4() {
           </div>
         </div>
 
-        {/* Footer actions */}
         {allWritten && (
           <div className="mt-8 flex justify-end">
             <Button
