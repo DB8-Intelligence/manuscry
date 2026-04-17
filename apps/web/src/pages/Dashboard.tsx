@@ -76,14 +76,41 @@ export default function Dashboard() {
         <h1 className="text-xl font-bold text-white mb-8 tracking-tight">Manuscry</h1>
         <nav className="space-y-1 flex-1">
           <button className="w-full text-left px-3 py-2 rounded-lg bg-[#1E3A8A]/20 text-[#93C5FD] text-sm font-medium">
-            Meus Livros
+            {'\u{1F4DA}'} Meus Livros
           </button>
-          <button className="w-full text-left px-3 py-2 rounded-lg text-slate-400 hover:text-slate-300 hover:bg-slate-800/50 text-sm transition-colors">
-            Configurações
+          <button
+            onClick={() => navigate('/analytics')}
+            className="w-full text-left px-3 py-2 rounded-lg text-slate-400 hover:text-slate-300 hover:bg-slate-800/50 text-sm transition-colors"
+          >
+            {'\u{1F4CA}'} Analytics
+          </button>
+          <button
+            onClick={() => navigate('/achievements')}
+            className="w-full text-left px-3 py-2 rounded-lg text-slate-400 hover:text-slate-300 hover:bg-slate-800/50 text-sm transition-colors"
+          >
+            {'\u{1F3C6}'} Conquistas
+          </button>
+          <button
+            onClick={() => navigate('/royalties')}
+            className="w-full text-left px-3 py-2 rounded-lg text-slate-400 hover:text-slate-300 hover:bg-slate-800/50 text-sm transition-colors"
+          >
+            {'\u{1F4B0}'} Royalties
+          </button>
+          <button
+            onClick={() => navigate('/developers')}
+            className="w-full text-left px-3 py-2 rounded-lg text-slate-400 hover:text-slate-300 hover:bg-slate-800/50 text-sm transition-colors"
+          >
+            {'\u{1F5A5}\uFE0F'} Developers
+          </button>
+          <button
+            onClick={() => navigate('/settings')}
+            className="w-full text-left px-3 py-2 rounded-lg text-slate-400 hover:text-slate-300 hover:bg-slate-800/50 text-sm transition-colors"
+          >
+            {'\u2699\uFE0F'} Configurações
           </button>
         </nav>
         <div className="text-xs text-slate-500 mt-auto pt-4 border-t border-slate-800">
-          Plano Trial &middot; 14 dias
+          <p className="truncate mb-1">{user?.email}</p>
         </div>
       </aside>
 
@@ -102,13 +129,56 @@ export default function Dashboard() {
 
         {/* Content */}
         <main className="flex-1 p-8">
+          {/* Stats cards */}
+          {projects.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <Card className="border-slate-700 bg-slate-900/50">
+                <CardContent className="p-4">
+                  <p className="text-xs text-slate-500">Projetos</p>
+                  <p className="text-2xl font-bold text-white">{projects.length}</p>
+                </CardContent>
+              </Card>
+              <Card className="border-slate-700 bg-slate-900/50">
+                <CardContent className="p-4">
+                  <p className="text-xs text-slate-500">Em andamento</p>
+                  <p className="text-2xl font-bold text-amber-400">{projects.filter(p => p.status === 'active').length}</p>
+                </CardContent>
+              </Card>
+              <Card className="border-slate-700 bg-slate-900/50">
+                <CardContent className="p-4">
+                  <p className="text-xs text-slate-500">Publicados</p>
+                  <p className="text-2xl font-bold text-emerald-400">{projects.filter(p => p.status === 'published').length}</p>
+                </CardContent>
+              </Card>
+              <Card className="border-slate-700 bg-slate-900/50">
+                <CardContent className="p-4">
+                  <p className="text-xs text-slate-500">Fase média</p>
+                  <p className="text-2xl font-bold text-[#93C5FD]">
+                    {projects.length > 0
+                      ? (projects.reduce((sum, p) => sum + (p.current_phase || 0), 0) / projects.length).toFixed(1)
+                      : '0'}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           <div className="flex items-center justify-between mb-6">
             <p className="text-slate-400 text-sm">
               {projects.length === 0 ? 'Nenhum livro ainda' : `${projects.length} projeto${projects.length > 1 ? 's' : ''}`}
             </p>
-            <Button onClick={() => setModalOpen(true)} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-medium">
-              + Novo Livro
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => navigate('/upload')}
+                className="border-slate-600 text-slate-300 hover:text-white"
+              >
+                {'\u{1F4C4}'} Importar manuscrito
+              </Button>
+              <Button onClick={() => setModalOpen(true)} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-medium">
+                + Novo Livro
+              </Button>
+            </div>
             <Dialog open={modalOpen} onOpenChange={setModalOpen}>
               <DialogContent className="bg-slate-900 border-slate-700 text-white">
                 <DialogHeader>

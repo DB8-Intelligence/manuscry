@@ -1,7 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import CollaboratorsModal from '@/components/app/CollaboratorsModal';
 import { useProjectStore } from '@/stores/projectStore';
 import { PIPELINE_PHASES } from '@manuscry/shared';
+import type { Phase4Data, Phase5Data, CoverData } from '@manuscry/shared';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
@@ -32,6 +34,7 @@ export default function ProjectView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { currentProject, loading, fetchProject } = useProjectStore();
+  const [collabOpen, setCollabOpen] = useState(false);
 
   useEffect(() => {
     if (id) fetchProject(id);
@@ -70,6 +73,14 @@ export default function ProjectView() {
             <span className="text-sm text-slate-500">
               {phasesCompleted.length}/6 fases completas
             </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setCollabOpen(true)}
+              className="border-slate-600 text-slate-300 h-7 text-xs ml-auto"
+            >
+              {'\u{1F465}'} Colaboradores
+            </Button>
           </div>
         </div>
       </header>
@@ -111,7 +122,101 @@ export default function ProjectView() {
             );
           })}
         </div>
+
+        {/* Quick actions */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Manuscript Editor */}
+          <button
+            onClick={() => navigate(`/projects/${currentProject.id}/editor`)}
+            className="text-left rounded-xl border border-blue-800/30 bg-blue-950/10 p-5 hover:border-blue-700/50 transition-all"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <span className="text-xs font-mono text-blue-400">EDITOR</span>
+              {(currentProject.phase_4_data as Phase4Data | null)?.manuscript_status === 'review' && (
+                <Badge className="bg-amber-900/30 text-amber-400 text-xs">Em revisão</Badge>
+              )}
+            </div>
+            <h3 className="font-semibold text-white mb-1">{'\u{1F4DD}'} Editor de Manuscrito</h3>
+            <p className="text-sm text-slate-400">Edite seu rascunho como um Word e envie para publicação</p>
+          </button>
+
+          {/* Cover preview */}
+          {(() => {
+            const covers = (currentProject.phase_5_data as Phase5Data | null)?.covers as CoverData | null;
+            const selected = covers?.covers?.find((c) => c.selected);
+            return (
+              <button
+                onClick={() => navigate(`/projects/${currentProject.id}/phase-5`)}
+                className="text-left rounded-xl border border-amber-800/30 bg-amber-950/10 p-5 hover:border-amber-700/50 transition-all"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <span className="text-xs font-mono text-amber-400">CAPAS</span>
+                  {covers && (
+                    <Badge className="bg-slate-800 text-slate-400 text-xs">
+                      {covers.generation_count}/{covers.max_generations} gerações
+                    </Badge>
+                  )}
+                </div>
+                <h3 className="font-semibold text-white mb-1">{'\u{1F3A8}'} Capas e Contracapa</h3>
+                <p className="text-sm text-slate-400">
+                  {selected
+                    ? `Capa selecionada: "${selected.style}" (score ${selected.score.toFixed(1)})`
+                    : '3 modelos por vez, máximo 3 gerações por livro'}
+                </p>
+              </button>
+            );
+          })()}
+        </div>
+
+        {/* Design Studio */}
+        <div className="mt-4">
+          <button
+            onClick={() => navigate(`/projects/${currentProject.id}/design`)}
+            className="w-full text-left rounded-xl border border-pink-800/30 bg-pink-950/10 p-5 hover:border-pink-700/50 transition-all"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <span className="text-xs font-mono text-pink-400">DESIGN</span>
+              <Badge className="bg-pink-900/30 text-pink-400">{'\u{1F3A8}'} Canva</Badge>
+            </div>
+            <h3 className="font-semibold text-white mb-1">Design Studio</h3>
+            <p className="text-sm text-slate-400">Crie capas, posts e materiais com Canva integrado</p>
+          </button>
+        </div>
+
+        {/* Editorial Calendar */}
+        <div className="mt-4">
+          <button
+            onClick={() => navigate(`/projects/${currentProject.id}/calendar`)}
+            className="w-full text-left rounded-xl border border-emerald-800/30 bg-emerald-950/10 p-5 hover:border-emerald-700/50 transition-all"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <span className="text-xs font-mono text-emerald-400">PLANEJAMENTO</span>
+              <Badge className="bg-emerald-900/30 text-emerald-400">{'\u{1F4C5}'} Timeline</Badge>
+            </div>
+            <h3 className="font-semibold text-white mb-1">Calendário Editorial</h3>
+            <p className="text-sm text-slate-400">Planeje deadlines por fase e veja o progresso visual do projeto</p>
+          </button>
+        </div>
+
+        {/* Social Studio */}
+        <div className="mt-4">
+          <button
+            onClick={() => navigate(`/projects/${currentProject.id}/social`)}
+            className="w-full text-left rounded-xl border border-purple-800/30 bg-purple-950/10 p-5 hover:border-purple-700/50 transition-all"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <span className="text-xs font-mono text-purple-400">ADD-ON</span>
+              <Badge className="bg-purple-900/30 text-purple-400">R$39/rede</Badge>
+            </div>
+            <h3 className="font-semibold text-white mb-1">{'\u{1F3AC}'} Social Studio</h3>
+            <p className="text-sm text-slate-400">Crie reels, posts e carrosséis a partir do seu livro para impulsionar vendas</p>
+          </button>
+        </div>
       </main>
+
+      {collabOpen && (
+        <CollaboratorsModal projectId={currentProject.id} onClose={() => setCollabOpen(false)} />
+      )}
     </div>
   );
 }

@@ -1,198 +1,199 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProjectStore } from '@/stores/projectStore';
 import { api } from '@/lib/api';
-import { supabase } from '@/lib/supabase';
-import type { Phase3Data, Phase4Data, Phase4Chapter } from '@manuscry/shared';
+import type {
+  Phase3Data, Phase4Data, WrittenChapter, ChapterOutline,
+} from '@manuscry/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
-
-function emptyChapter(chapter: number, title: string): Phase4Chapter {
-  return {
-    chapter,
-    title,
-    content: '',
-    word_count: 0,
-    status: 'pending',
-    updated_at: '',
-  };
-}
+type StreamingState = 'idle' | 'writing' | 'humanizing' | 'done' | 'error';
 
 export default function Phase4() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentProject, fetchProject, updateProject } = useProjectStore();
+  const { currentProject, fetchProject } = useProjectStore();
 
-  const [selectedChapter, setSelectedChapter] = useState<number>(1);
-  const [liveText, setLiveText] = useState('');
-  const [streaming, setStreaming] = useState(false);
+  const [activeChapter, setActiveChapter] = useState<number | null>(null);
+  const [streamState, setStreamState] = useState<StreamingState>('idle');
+  const [streamedText, setStreamedText] = useState('');
+  const [streamError, setStreamError] = useState('');
+  const [viewingChapter, setViewingChapter] = useState<number | null>(null);
+
+  // Editor state
+  const [editing, setEditing] = useState(false);
+  const [editContent, setEditContent] = useState('');
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [draft, setDraft] = useState('');
-  const abortRef = useRef<AbortController | null>(null);
+  const [saveMessage, setSaveMessage] = useState('');
+
+  const textRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (id) fetchProject(id);
   }, [id, fetchProject]);
 
-  const phase3 = currentProject?.phase_3_data as Phase3Data | null;
-  const phase4 = (currentProject?.phase_4_data as Phase4Data | null) || null;
-
-  const chapters: Phase4Chapter[] = useMemo(() => {
-    if (!phase3) return [];
-    return phase3.chapter_plan.map((plan) => {
-      const saved = phase4?.chapters?.find((c) => c.chapter === plan.chapter);
-      return saved && saved.content ? saved : emptyChapter(plan.chapter, plan.title);
-    });
-  }, [phase3, phase4]);
-
-  const current = chapters.find((c) => c.chapter === selectedChapter);
-  const currentPlan = phase3?.chapter_plan.find((p) => p.chapter === selectedChapter);
-
   useEffect(() => {
-    if (current && !streaming) {
-      setDraft(current.content);
-      setLiveText(current.content);
+    if (streamState === 'writing' || streamState === 'humanizing') {
+      textRef.current?.scrollTo({ top: textRef.current.scrollHeight });
     }
-  }, [current?.chapter, current?.content, streaming]);
+  }, [streamedText, streamState]);
 
-  async function streamCurrentChapter() {
-    if (!currentProject || !currentPlan) return;
-    setError('');
-    setStreaming(true);
-    setLiveText('');
+  const phase3Data = currentProject?.phase_3_data as Phase3Data | null;
+  const phase4Data = (currentProject?.phase_4_data || { chapters: [], total_words_written: 0 }) as Phase4Data;
 
-    const controller = new AbortController();
-    abortRef.current = controller;
+  const getWrittenChapter = useCallback(
+    (num: number): WrittenChapter | undefined =>
+      phase4Data.chapters.find((ch) => ch.number === num),
+    [phase4Data.chapters],
+  );
 
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-
-      const res = await fetch(`${API_URL}/api/pipeline/phase4/chapter`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          projectId: currentProject.id,
-          chapterNum: selectedChapter,
-        }),
-        signal: controller.signal,
-      });
-
-      if (!res.ok || !res.body) {
-        const body = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(body.error || 'Falha ao iniciar streaming');
+  const getChapterStatus = useCallback(
+    (num: number): WrittenChapter['status'] => {
+      if (activeChapter === num && (streamState === 'writing' || streamState === 'humanizing')) {
+        return 'writing';
       }
+      return getWrittenChapter(num)?.status || 'pending';
+    },
+    [activeChapter, streamState, getWrittenChapter],
+  );
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let accumulated = '';
+  const isStreaming = streamState === 'writing' || streamState === 'humanizing';
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        const events = buffer.split('\n\n');
-        buffer = events.pop() || '';
-
-        for (const raw of events) {
-          const line = raw.replace(/^data:\s*/, '').trim();
-          if (!line) continue;
-          try {
-            const evt = JSON.parse(line);
-            if (evt.type === 'chunk') {
-              accumulated += evt.text;
-              setLiveText(accumulated);
-            } else if (evt.type === 'done') {
-              const ch = evt.chapter as Phase4Chapter;
-              setDraft(ch.content);
-              setLiveText(ch.content);
-              const nextChapters = chapters.map((c) =>
-                c.chapter === ch.chapter ? ch : c,
-              );
-              updateProject(currentProject.id, {
-                phase_4_data: {
-                  chapters: nextChapters,
-                  total_words: evt.total_words ?? 0,
-                },
-              });
-            } else if (evt.type === 'error') {
-              throw new Error(evt.error);
-            }
-          } catch (parseErr) {
-            if (parseErr instanceof Error && parseErr.message !== 'Unexpected end of JSON input') {
-              throw parseErr;
-            }
-          }
-        }
-      }
-    } catch (err) {
-      if ((err as Error).name === 'AbortError') return;
-      setError(err instanceof Error ? err.message : 'Erro ao gerar capítulo');
-    } finally {
-      setStreaming(false);
-      abortRef.current = null;
-    }
+  function enterEditMode() {
+    if (!viewingChapter || isStreaming) return;
+    const written = getWrittenChapter(viewingChapter);
+    if (!written?.content) return;
+    setEditContent(written.content);
+    setEditing(true);
+    setSaveMessage('');
+    setTimeout(() => editorRef.current?.focus(), 50);
   }
 
-  function stopStreaming() {
-    abortRef.current?.abort();
-    setStreaming(false);
+  function cancelEdit() {
+    setEditing(false);
+    setEditContent('');
+    setSaveMessage('');
   }
 
-  async function saveDraft() {
-    if (!currentProject || !currentPlan) return;
+  async function saveEdit() {
+    if (!id || !viewingChapter) return;
     setSaving(true);
-    setError('');
+    setSaveMessage('');
     try {
-      const result = await api.patch<{ chapter: Phase4Chapter; total_words: number }>(
-        '/api/pipeline/phase4/chapter',
-        {
-          projectId: currentProject.id,
-          chapterNum: selectedChapter,
-          content: draft,
-          title: currentPlan.title,
-        },
-      );
-      const nextChapters = chapters.map((c) =>
-        c.chapter === result.chapter.chapter ? result.chapter : c,
-      );
-      updateProject(currentProject.id, {
-        phase_4_data: { chapters: nextChapters, total_words: result.total_words },
+      await api.post('/api/pipeline/phase4/save', {
+        projectId: id,
+        chapterNumber: viewingChapter,
+        content: editContent,
       });
+      await fetchProject(id);
+      setEditing(false);
+      setSaveMessage('Salvo');
+      setTimeout(() => setSaveMessage(''), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao salvar');
+      setSaveMessage(err instanceof Error ? err.message : 'Erro ao salvar');
     } finally {
       setSaving(false);
     }
   }
 
+  async function writeChapter(chapterNumber: number) {
+    if (!id || isStreaming) return;
+    if (editing) cancelEdit();
+
+    setActiveChapter(chapterNumber);
+    setStreamState('writing');
+    setStreamedText('');
+    setStreamError('');
+    setViewingChapter(chapterNumber);
+
+    try {
+      await api.stream(
+        '/api/pipeline/phase4/write',
+        { projectId: id, chapterNumber },
+        (text) => setStreamedText((prev) => prev + text),
+        () => {
+          setStreamState('done');
+          fetchProject(id!).then(() => { setActiveChapter(null); });
+        },
+      );
+    } catch (err) {
+      setStreamState('error');
+      setStreamError(err instanceof Error ? err.message : 'Erro na escrita');
+    }
+  }
+
+  async function humanizeChapter(chapterNumber: number) {
+    if (!id || isStreaming) return;
+    if (editing) cancelEdit();
+
+    setActiveChapter(chapterNumber);
+    setStreamState('humanizing');
+    setStreamedText('');
+    setStreamError('');
+    setViewingChapter(chapterNumber);
+
+    try {
+      await api.stream(
+        '/api/pipeline/phase4/humanize',
+        { projectId: id, chapterNumber },
+        (text) => setStreamedText((prev) => prev + text),
+        () => {
+          setStreamState('done');
+          fetchProject(id!).then(() => { setActiveChapter(null); });
+        },
+      );
+    } catch (err) {
+      setStreamState('error');
+      setStreamError(err instanceof Error ? err.message : 'Erro na humanização');
+    }
+  }
+
   if (!currentProject) {
     return (
-      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center text-slate-400">
-        Carregando...
+      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
+        <div className="text-slate-500">Carregando...</div>
       </div>
     );
   }
 
-  if (!phase3) {
+  if (!phase3Data?.chapters) {
     return (
-      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center text-slate-400">
-        Complete a Fase 3 antes de iniciar a escrita.
+      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
+        <div className="text-slate-400">Roteiro não encontrado. Complete a Fase 3 primeiro.</div>
       </div>
     );
   }
 
-  const totalWords = chapters.reduce((acc, c) => acc + (c.word_count || 0), 0);
-  const doneCount = chapters.filter((c) => c.status === 'done').length;
+  const totalChapters = phase3Data.chapters.length;
+  const writtenCount = phase4Data.chapters.filter(
+    (ch) => ch.status === 'completed' || ch.status === 'humanized',
+  ).length;
+  const humanizedCount = phase4Data.chapters.filter((ch) => ch.status === 'humanized').length;
+  const progressPercent = totalChapters > 0 ? (writtenCount / totalChapters) * 100 : 0;
+  const allWritten = writtenCount >= totalChapters;
+
+  const isViewingStream = activeChapter === viewingChapter && streamedText;
+  const viewedContent = viewingChapter !== null
+    ? (isViewingStream ? streamedText : getWrittenChapter(viewingChapter)?.content || '')
+    : '';
+  const viewedOutline = viewingChapter !== null
+    ? phase3Data.chapters.find((ch) => ch.number === viewingChapter)
+    : null;
+  const viewedWritten = viewingChapter !== null ? getWrittenChapter(viewingChapter) : null;
+
+  const editorWordCount = editing
+    ? editContent.split(/\s+/).filter(Boolean).length
+    : viewedContent.split(/\s+/).filter(Boolean).length;
+
+  const STATUS_BADGES: Record<string, { text: string; className: string }> = {
+    pending: { text: 'Pendente', className: 'bg-slate-800 text-slate-500' },
+    writing: { text: 'Escrevendo...', className: 'bg-amber-900/30 text-amber-400 animate-pulse' },
+    completed: { text: 'Escrito', className: 'bg-blue-900/30 text-blue-400' },
+    humanized: { text: 'Humanizado', className: 'bg-emerald-900/30 text-emerald-400' },
+  };
 
   return (
     <div className="min-h-screen bg-[#0F172A]">
@@ -201,7 +202,7 @@ export default function Phase4() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate(`/projects/${currentProject.id}`)}
+            onClick={() => navigate(`/projects/${id}`)}
             className="text-slate-400 hover:text-white mb-3 -ml-2"
           >
             &larr; Voltar ao Projeto
@@ -211,148 +212,256 @@ export default function Phase4() {
             <h1 className="text-xl font-bold text-white">Writing Engine</h1>
           </div>
           <p className="text-sm text-slate-400 mt-1">
-            Escrita capítulo a capítulo com streaming em tempo real · {doneCount}/
-            {chapters.length} capítulos · {totalWords.toLocaleString('pt-BR')} palavras
+            Escrita, edição e humanização capítulo a capítulo
           </p>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-12 gap-6">
-        <aside className="col-span-4">
-          <Card className="border-slate-700 bg-slate-900/50">
-            <CardHeader>
-              <CardTitle className="text-white text-base">Capítulos</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 max-h-[70vh] overflow-y-auto">
-              {chapters.map((ch) => {
-                const active = ch.chapter === selectedChapter;
+      <div className="max-w-6xl mx-auto px-6 py-6">
+        {/* Progress bar */}
+        <Card className="border-slate-700 bg-slate-900/50 mb-6">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-slate-400">
+                {writtenCount}/{totalChapters} capítulos escritos
+                {humanizedCount > 0 && ` (${humanizedCount} humanizados)`}
+              </span>
+              <span className="text-sm text-white font-medium">
+                {phase4Data.total_words_written.toLocaleString()} palavras
+              </span>
+            </div>
+            <div className="bg-slate-800 rounded-full h-2">
+              <div
+                className="bg-amber-500 h-2 rounded-full transition-all"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Chapter list */}
+          <div className="lg:col-span-1 space-y-2">
+            <h3 className="text-white font-semibold mb-3 text-sm">Capítulos</h3>
+            <div className="space-y-1.5 max-h-[70vh] overflow-y-auto pr-1">
+              {phase3Data.chapters.map((outline: ChapterOutline) => {
+                const status = getChapterStatus(outline.number);
+                const badge = STATUS_BADGES[status] || STATUS_BADGES.pending;
+                const isViewing = viewingChapter === outline.number;
+                const written = getWrittenChapter(outline.number);
+                const canWrite = status === 'pending' || status === 'completed' || status === 'humanized';
+                const canHumanize = status === 'completed';
+
                 return (
-                  <button
-                    key={ch.chapter}
-                    onClick={() => !streaming && setSelectedChapter(ch.chapter)}
-                    disabled={streaming}
-                    className={`w-full text-left p-3 rounded-lg border transition ${
-                      active
-                        ? 'border-amber-500 bg-amber-500/10'
-                        : 'border-slate-700 hover:border-slate-500 bg-slate-900/40'
+                  <div
+                    key={outline.number}
+                    className={`rounded-lg border p-3 transition-all cursor-pointer ${
+                      isViewing
+                        ? 'border-[#1E3A8A] bg-[#1E3A8A]/10'
+                        : 'border-slate-700 bg-slate-900/50 hover:border-slate-600'
                     }`}
+                    onClick={() => {
+                      if (written?.content || (activeChapter === outline.number && streamedText)) {
+                        if (editing) cancelEdit();
+                        setViewingChapter(outline.number);
+                      }
+                    }}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-slate-500">Cap {ch.chapter}</span>
-                      <Badge
-                        className={
-                          ch.status === 'done'
-                            ? 'bg-emerald-500/20 text-emerald-300'
-                            : ch.status === 'draft'
-                              ? 'bg-amber-500/20 text-amber-300'
-                              : 'bg-slate-700/60 text-slate-400'
-                        }
-                      >
-                        {ch.status === 'done'
-                          ? 'pronto'
-                          : ch.status === 'draft'
-                            ? 'rascunho'
-                            : 'pendente'}
-                      </Badge>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-mono text-slate-500">Cap. {outline.number}</span>
+                      <Badge className={`text-[10px] ${badge.className}`}>{badge.text}</Badge>
                     </div>
-                    <p className="text-sm text-white font-medium mt-1 line-clamp-2">
-                      {ch.title}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      {ch.word_count.toLocaleString('pt-BR')} palavras
-                    </p>
-                  </button>
+                    <p className="text-sm text-white truncate mb-2">{outline.title}</p>
+                    {written && (
+                      <p className="text-xs text-slate-500">{written.word_count.toLocaleString()} palavras</p>
+                    )}
+                    <div className="flex gap-1.5 mt-2">
+                      {canWrite && (
+                        <Button
+                          size="sm"
+                          onClick={(e) => { e.stopPropagation(); writeChapter(outline.number); }}
+                          disabled={isStreaming}
+                          className="h-6 text-xs bg-amber-500 hover:bg-amber-600 text-slate-900 px-2"
+                        >
+                          {status === 'pending' ? 'Escrever' : 'Reescrever'}
+                        </Button>
+                      )}
+                      {canHumanize && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => { e.stopPropagation(); humanizeChapter(outline.number); }}
+                          disabled={isStreaming}
+                          className="h-6 text-xs border-slate-600 text-slate-300 px-2"
+                        >
+                          Humanizar
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 );
               })}
-            </CardContent>
-          </Card>
-        </aside>
-
-        <section className="col-span-8 space-y-4">
-          {currentPlan && (
-            <Card className="border-slate-700 bg-slate-900/50">
-              <CardHeader>
-                <CardTitle className="text-white text-base">
-                  Capítulo {currentPlan.chapter}: {currentPlan.title}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm text-slate-300">
-                <p>
-                  <span className="text-slate-500">Resumo:</span> {currentPlan.summary}
-                </p>
-                <p>
-                  <span className="text-slate-500">Hook de saída:</span>{' '}
-                  {currentPlan.hook}
-                </p>
-                <p className="text-xs text-slate-500">
-                  Meta: {currentPlan.target_words} palavras
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {error && (
-            <div className="bg-red-900/30 border border-red-800 text-red-300 p-4 rounded-lg">
-              {error}
             </div>
-          )}
-
-          <div className="flex flex-wrap gap-3">
-            {!streaming ? (
-              <Button
-                onClick={streamCurrentChapter}
-                className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-medium"
-              >
-                {current?.content ? 'Reescrever com IA' : 'Escrever com IA'}
-              </Button>
-            ) : (
-              <Button
-                onClick={stopStreaming}
-                variant="outline"
-                className="border-red-600 text-red-300"
-              >
-                Parar
-              </Button>
-            )}
-            <Button
-              onClick={saveDraft}
-              disabled={saving || streaming || draft === current?.content}
-              variant="outline"
-              className="border-slate-600 text-slate-300"
-            >
-              {saving ? 'Salvando...' : 'Salvar rascunho'}
-            </Button>
           </div>
 
-          <Card className="border-slate-700 bg-slate-900/50">
-            <CardHeader>
-              <CardTitle className="text-white text-base">
-                {streaming ? 'Gerando ao vivo...' : 'Editor'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {streaming ? (
-                <div className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed min-h-[50vh] max-h-[60vh] overflow-y-auto font-serif">
-                  {liveText}
-                  <span className="inline-block w-2 h-4 bg-amber-400 animate-pulse ml-0.5" />
-                </div>
-              ) : (
-                <textarea
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  className="w-full min-h-[50vh] bg-slate-950/60 border border-slate-700 rounded-lg p-4 text-slate-200 text-sm leading-relaxed font-serif focus:outline-none focus:border-amber-500"
-                  placeholder="Capítulo ainda não escrito. Clique em 'Escrever com IA' para começar."
-                />
-              )}
-              {!streaming && draft && (
-                <p className="text-xs text-slate-500 mt-2">
-                  {draft.trim().split(/\s+/).filter(Boolean).length} palavras
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </section>
-      </main>
+          {/* Content viewer / editor */}
+          <div className="lg:col-span-2">
+            {viewingChapter === null && streamState === 'idle' && (
+              <Card className="border-slate-700 bg-slate-900/50 text-center py-20">
+                <CardContent>
+                  <div className="text-4xl mb-4">{'\u270D\uFE0F'}</div>
+                  <h3 className="text-lg font-semibold text-white mb-2">
+                    Selecione um capítulo para começar
+                  </h3>
+                  <p className="text-sm text-slate-400 max-w-sm mx-auto">
+                    Clique em "Escrever" em qualquer capítulo da lista.
+                    Após escrito, clique em "Editar" para ajustes manuais.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {viewingChapter !== null && (
+              <Card className="border-slate-700 bg-slate-900/50">
+                <CardHeader className="pb-3 border-b border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-white text-base">
+                        Capítulo {viewedOutline?.number}: {viewedOutline?.title}
+                      </CardTitle>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {viewedOutline?.act_position} &middot; Tensão {viewedOutline?.tension_level}/10
+                        &middot; ~{viewedOutline?.estimated_words?.toLocaleString()} palavras alvo
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {activeChapter === viewingChapter && streamState === 'writing' && (
+                        <Badge className="bg-amber-900/30 text-amber-400 animate-pulse">Escrevendo...</Badge>
+                      )}
+                      {activeChapter === viewingChapter && streamState === 'humanizing' && (
+                        <Badge className="bg-purple-900/30 text-purple-400 animate-pulse">Humanizando...</Badge>
+                      )}
+                      {editing && (
+                        <Badge className="bg-blue-900/30 text-blue-400">Editando</Badge>
+                      )}
+                      {/* Edit/Save buttons */}
+                      {viewedWritten?.content && !isStreaming && !editing && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={enterEditMode}
+                          className="h-7 text-xs border-slate-600 text-slate-300"
+                        >
+                          Editar
+                        </Button>
+                      )}
+                      {editing && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={cancelEdit}
+                            className="h-7 text-xs text-slate-400"
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={saveEdit}
+                            disabled={saving}
+                            className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                          >
+                            {saving ? 'Salvando...' : 'Salvar'}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {/* Edit mode */}
+                  {editing && (
+                    <textarea
+                      ref={editorRef}
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      className="w-full p-6 bg-transparent text-slate-300 text-[15px] leading-relaxed resize-none focus:outline-none min-h-[60vh] max-h-[70vh] overflow-y-auto"
+                      spellCheck={false}
+                    />
+                  )}
+
+                  {/* Read mode */}
+                  {!editing && (
+                    <div
+                      ref={textRef}
+                      className="p-6 max-h-[60vh] overflow-y-auto"
+                    >
+                      {viewedContent ? (
+                        <div className="whitespace-pre-wrap text-slate-300 leading-relaxed text-[15px]">
+                          {viewedContent}
+                          {isStreaming && activeChapter === viewingChapter && (
+                            <span className="inline-block w-2 h-5 bg-amber-500 animate-pulse ml-0.5 align-text-bottom" />
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center py-12 text-slate-500">
+                          <p>Capítulo ainda não escrito</p>
+                          <Button
+                            onClick={() => writeChapter(viewingChapter)}
+                            disabled={isStreaming}
+                            className="mt-3 bg-amber-500 hover:bg-amber-600 text-slate-900"
+                          >
+                            Escrever agora
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Footer */}
+                  {(viewedContent || editing) && (
+                    <div className="border-t border-slate-800 px-6 py-3 flex items-center justify-between text-xs text-slate-500">
+                      <span>{editorWordCount.toLocaleString()} palavras</span>
+                      <div className="flex items-center gap-2">
+                        {saveMessage && (
+                          <Badge className={saveMessage === 'Salvo'
+                            ? 'bg-emerald-900/30 text-emerald-400 text-xs'
+                            : 'bg-red-900/30 text-red-400 text-xs'
+                          }>
+                            {saveMessage}
+                          </Badge>
+                        )}
+                        {streamState === 'done' && activeChapter === viewingChapter && !saveMessage && (
+                          <Badge className="bg-emerald-900/30 text-emerald-400 text-xs">
+                            Salvo automaticamente
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {streamState === 'error' && streamError && (
+              <div className="bg-red-900/30 border border-red-800 text-red-300 p-4 rounded-lg mt-4">
+                {streamError}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {allWritten && (
+          <div className="mt-8 flex justify-end">
+            <Button
+              onClick={() => navigate(`/projects/${id}/phase-5`)}
+              className="bg-[#1E3A8A] hover:bg-[#1E40AF] text-white px-8"
+            >
+              Manuscrito completo &rarr; Produção
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

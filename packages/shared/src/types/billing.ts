@@ -1,4 +1,29 @@
 export type PlanId = 'trial' | 'starter' | 'pro' | 'publisher';
+export type PaymentGateway = 'stripe' | 'hotmart';
+export type SubscriptionStatus = 'active' | 'past_due' | 'cancelled' | 'trialing';
+
+export interface Subscription {
+  id: string;
+  user_id: string;
+  plan: PlanId;
+  gateway: PaymentGateway;
+  gateway_subscription_id: string | null;
+  status: SubscriptionStatus;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  created_at: string;
+}
+
+export interface PlanDisplayInfo {
+  id: PlanId;
+  name: string;
+  price_brl: string;
+  price_usd: string;
+  books_per_month: string;
+  features: string[];
+  popular?: boolean;
+}
 
 export interface UserProfile {
   id: string;
