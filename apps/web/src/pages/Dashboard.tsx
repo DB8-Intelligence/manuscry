@@ -79,6 +79,12 @@ export default function Dashboard() {
             {'\u{1F4DA}'} Meus Livros
           </button>
           <button
+            onClick={() => navigate('/royalties')}
+            className="w-full text-left px-3 py-2 rounded-lg text-slate-400 hover:text-slate-300 hover:bg-slate-800/50 text-sm transition-colors"
+          >
+            {'\u{1F4B0}'} Royalties
+          </button>
+          <button
             onClick={() => navigate('/settings')}
             className="w-full text-left px-3 py-2 rounded-lg text-slate-400 hover:text-slate-300 hover:bg-slate-800/50 text-sm transition-colors"
           >

@@ -20,6 +20,7 @@ import Settings from '@/pages/Settings';
 import Blog from '@/pages/Blog';
 import BlogArticle from '@/pages/BlogArticle';
 import Marketplace from '@/pages/Marketplace';
+import Royalties from '@/pages/Royalties';
 import NotFound from '@/pages/NotFound';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -77,6 +78,7 @@ export default function App() {
           <Route path="/projects" element={<Navigate to="/dashboard" replace />} />
           <Route path="/projects/new" element={<Navigate to="/dashboard" replace />} />
           <Route path="/upload" element={<ProtectedRoute><UploadManuscript /></ProtectedRoute>} />
+          <Route path="/royalties" element={<ProtectedRoute><Royalties /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
           <Route path="/projects/:id" element={<ProtectedRoute><ProjectView /></ProtectedRoute>} />
