@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import ErrorBoundary from '@/components/app/ErrorBoundary';
+import Landing from '@/pages/Landing';
 import Auth from '@/pages/Auth';
 import AuthCallback from '@/pages/AuthCallback';
 import Dashboard from '@/pages/Dashboard';
@@ -56,7 +57,7 @@ export default function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<PublicRoute><Auth /></PublicRoute>} />
           <Route path="/auth/callback" element={<AuthCallback />} />
 
