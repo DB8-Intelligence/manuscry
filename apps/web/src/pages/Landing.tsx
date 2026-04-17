@@ -266,6 +266,87 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ── BOOK TYPES / GENRES ── */}
+      <section className="max-w-6xl mx-auto px-6 py-20">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold mb-4">Que tipos de livros você pode criar?</h2>
+          <p className="text-slate-400 max-w-xl mx-auto">
+            A IA adapta o estilo de escrita ao seu gênero automaticamente.
+            Todos os tipos disponíveis em todos os planos.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {[
+            { icon: '\u2764\uFE0F', name: 'Romance', desc: 'Diálogos, tensão, química entre personagens' },
+            { icon: '\u{1F50D}', name: 'Suspense / Thriller', desc: 'Pistas, reviravoltas, ritmo acelerado' },
+            { icon: '\u{1F52E}', name: 'Fantasia / Sci-Fi', desc: 'Construção de mundo, magia, lore' },
+            { icon: '\u{1F4A1}', name: 'Autoajuda', desc: 'Frameworks, exercícios, planos de ação' },
+            { icon: '\u{1F4C8}', name: 'Negócios', desc: 'Autoridade, cases, estratégias' },
+            { icon: '\u{1F373}', name: 'Culinária', desc: 'Receitas, planos alimentares, nutrição' },
+            { icon: '\u{2B50}', name: 'Infantil', desc: 'Linguagem adequada, lições e moral' },
+            { icon: '\u{1F464}', name: 'Biografias / Memórias', desc: 'Histórias de vida, narrativa pessoal' },
+            { icon: '\u{1F33F}', name: 'Saúde / Bem-estar', desc: 'Guias, protocolos, recuperação' },
+            { icon: '\u{1F47B}', name: 'Terror / Horror', desc: 'Atmosfera, tensão psicológica, suspense' },
+            { icon: '\u{26A1}', name: 'Lead Magnets', desc: 'Ebooks curtos que convertem leads' },
+            { icon: '\u{1F393}', name: 'Educação', desc: 'Conteúdo didático, cursos em livro' },
+          ].map((genre) => (
+            <Card key={genre.name} className="border-slate-700 bg-slate-900/50 hover:border-slate-600 transition-all">
+              <CardContent className="p-5">
+                <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-xl mb-3">
+                  {genre.icon}
+                </div>
+                <h3 className="font-semibold text-white text-sm">{genre.name}</h3>
+                <p className="text-xs text-slate-500 mt-1">{genre.desc}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <p className="text-center text-xs text-slate-600 mt-6">
+          12+ gêneros disponíveis. A IA detecta o gênero e aplica o estilo de escrita correto.
+        </p>
+      </section>
+
+      {/* ── QUICK ANSWER / SEO ── */}
+      <section className="bg-slate-900/50 border-y border-slate-800">
+        <div className="max-w-4xl mx-auto px-6 py-16">
+          <Badge className="bg-[#1E3A8A]/20 text-[#93C5FD] mb-6">Resposta rápida</Badge>
+          <div className="bg-[#0F172A] border border-slate-700 rounded-xl p-8">
+            <p className="text-slate-300 leading-relaxed">
+              O <strong className="text-white">Manuscry</strong> é uma plataforma de escrita editorial com IA que gera livros completos
+              a partir de uma descrição de tema. Você fornece o assunto, público-alvo e tom desejado.
+              A IA cria um outline estruturado, depois escreve cada capítulo sequencialmente mantendo
+              consistência através de um <strong className="text-white">Book Bible</strong> persistente — personagens nunca mudam entre capítulos.
+              O resultado é um livro formatado profissionalmente que você pode exportar como EPUB, PDF ou publicar
+              diretamente no Amazon KDP, IngramSpark e 13+ plataformas. Diferente de ferramentas genéricas de IA,
+              o Manuscry oferece <strong className="text-white">análise de mercado KDP antes de escrever</strong>, humanizador de texto,
+              geração de capas por IA, 40 checks de compliance KDP e distribuição com royalties automáticos.
+            </p>
+          </div>
+
+          <h2 className="text-2xl font-bold text-white mt-16 mb-6">O que é um escritor de livros com IA?</h2>
+          <div className="space-y-4 text-slate-400 leading-relaxed">
+            <p>
+              Um escritor de livros com IA é uma ferramenta que ajuda você a criar manuscritos completos —
+              do primeiro capítulo à última página. Em vez de encarar um documento em branco por meses,
+              você fornece um outline e a IA gera prosa de qualidade profissional. Pense nele como um
+              <strong className="text-slate-200"> ghostwriter digital</strong> que trabalha 24 horas por dia.
+            </p>
+            <p>
+              Diferente de ferramentas de chat como ChatGPT, uma <strong className="text-slate-200">IA dedicada para livros</strong> mantém
+              consistência de personagens entre capítulos, desenvolve arcos narrativos, cria diálogos
+              realistas e rastreia elementos da história ao longo de todo o manuscrito. É como ter um
+              parceiro de escrita incansável que nunca perde o fio da meada.
+            </p>
+            <p>
+              O Manuscry vai além: antes de escrever uma única palavra, analisa o mercado KDP para
+              identificar oportunidades reais de venda. Depois da escrita, o humanizador garante que
+              o texto seja indistinguível de escrita humana. E o Preflight Validator verifica 40 pontos
+              de compliance antes de você exportar — zero rejeições evitáveis na Amazon.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* ── COMPARISON TABLE ── */}
       <section className="max-w-4xl mx-auto px-6 py-20">
         <div className="text-center mb-12">
@@ -393,6 +474,8 @@ export default function Landing() {
               <a href="#pipeline" className="hover:text-slate-300">Como funciona</a>
               <a href="#features" className="hover:text-slate-300">Features</a>
               <a href="#pricing" className="hover:text-slate-300">Preços</a>
+              <span onClick={() => navigate('/store')} className="hover:text-slate-300 cursor-pointer">Vitrine</span>
+              <span onClick={() => navigate('/blog')} className="hover:text-slate-300 cursor-pointer">Blog</span>
             </div>
             <p className="text-xs text-slate-600">
               &copy; {new Date().getFullYear()} DB8 Intelligence. Todos os direitos reservados.
