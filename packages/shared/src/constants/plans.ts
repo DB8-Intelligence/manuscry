@@ -9,8 +9,8 @@ export const PLANS = {
     days: 14,
   },
   starter: {
-    price_brl_cents: 9700,
-    price_usd_cents: 2700,
+    price_brl_cents: 10900,
+    price_usd_cents: 2999,
     books_limit: 1,
     formats: ['ebook', 'paperback_kdp'] as const,
     markets: ['pt-br'] as const,
@@ -19,8 +19,8 @@ export const PLANS = {
     dust_jacket: false,
   },
   pro: {
-    price_brl_cents: 19700,
-    price_usd_cents: 5700,
+    price_brl_cents: 26900,
+    price_usd_cents: 7499,
     books_limit: 3,
     formats: ['ebook', 'paperback_kdp', 'hardcover_kdp', 'paperback_is', 'hardcover_is'] as const,
     markets: ['pt-br', 'en'] as const,
@@ -29,9 +29,9 @@ export const PLANS = {
     dust_jacket: true,
   },
   publisher: {
-    price_brl_cents: 49700,
-    price_usd_cents: 14700,
-    books_limit: -1,
+    price_brl_cents: 67900,
+    price_usd_cents: 18999,
+    books_limit: 8,
     formats: 'all' as const,
     markets: ['pt-br', 'en'] as const,
     audiobook: true,
@@ -39,6 +39,6 @@ export const PLANS = {
     dust_jacket: true,
     white_label: true,
     api_access: true,
-    pen_names: -1,
+    pen_names: 10,
   },
 } as const;

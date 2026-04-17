@@ -339,9 +339,9 @@ Sem contexto persistido = personagens inconsistentes = produto com defeito.
 
 ```typescript
 trial:     14 dias, 1 livro, ebook + paperback KDP, PT-BR
-starter:   R$97/mês  | $27/mês — 1 livro/mês
-pro:       R$197/mês | $57/mês — 3 livros/mês, todos os formatos
-publisher: R$497/mês | $147/mês — ilimitado, white label
+starter:   R$109/mês  | $29.99/mês — 1 livro/mês
+pro:       R$269/mês  | $74.99/mês — 3 livros/mês, todos os formatos
+publisher: R$679/mês  | $189.99/mês — 8 livros/mês, white label, API
 ```
 
 ---
