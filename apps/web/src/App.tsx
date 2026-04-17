@@ -19,6 +19,7 @@ import UploadManuscript from '@/pages/UploadManuscript';
 import Settings from '@/pages/Settings';
 import Blog from '@/pages/Blog';
 import BlogArticle from '@/pages/BlogArticle';
+import Marketplace from '@/pages/Marketplace';
 import NotFound from '@/pages/NotFound';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -68,6 +69,7 @@ export default function App() {
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/blog/:slug" element={<BlogArticle />} />
+          <Route path="/store" element={<Marketplace />} />
 
           {/* Protected */}
           <Route path="/welcome" element={<ProtectedRoute><Welcome /></ProtectedRoute>} />

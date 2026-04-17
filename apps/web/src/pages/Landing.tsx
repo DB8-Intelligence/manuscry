@@ -118,6 +118,7 @@ export default function Landing() {
           <div className="flex items-center gap-4">
             <a href="#pricing" className="text-sm text-slate-400 hover:text-white hidden sm:block">Preços</a>
             <a href="#features" className="text-sm text-slate-400 hover:text-white hidden sm:block">Features</a>
+            <span onClick={() => navigate('/store')} className="text-sm text-slate-400 hover:text-white hidden sm:block cursor-pointer">Loja</span>
             <span onClick={() => navigate('/blog')} className="text-sm text-slate-400 hover:text-white hidden sm:block cursor-pointer">Blog</span>
             <Button
               variant="ghost"

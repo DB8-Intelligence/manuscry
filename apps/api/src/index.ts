@@ -12,6 +12,7 @@ import { productionRouter } from './routes/production.js';
 import { billingRouter } from './routes/billing.js';
 import { socialRouter } from './routes/social.js';
 import { blogRouter } from './routes/blog.js';
+import { marketplaceRouter } from './routes/marketplace.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -63,6 +64,7 @@ app.use('/api/production', productionRouter);
 app.use('/api/billing', billingRouter);
 app.use('/api/social', aiLimiter, socialRouter);
 app.use('/api/blog', blogRouter);
+app.use('/api/marketplace', marketplaceRouter);
 
 // --- 404 handler ---
 app.use((_req, res) => {

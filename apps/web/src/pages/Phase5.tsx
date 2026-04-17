@@ -5,7 +5,9 @@ import { api } from '@/lib/api';
 import type {
   Phase5Data, CoverData, CoverVariation, BiographyData,
   BookDesignData, KdpMetadata, AudiobookData, AudiobookChapterScript, Phase4Data,
+  ChannelInfo, DistributionChannel,
 } from '@manuscry/shared';
+import { DISTRIBUTION_CHANNELS } from '@manuscry/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -320,6 +322,9 @@ export default function Phase5() {
   const [storePublishing, setStorePublishing] = useState(false);
   const [storeResult, setStoreResult] = useState<{ store_url: string } | null>(null);
   const [storePrice, setStorePrice] = useState('9.99');
+  const [selectedChannels, setSelectedChannels] = useState<Set<DistributionChannel>>(new Set());
+  const [distPublishing, setDistPublishing] = useState(false);
+  const [distResult, setDistResult] = useState<{ message: string } | null>(null);
 
   async function downloadExport(format: 'epub' | 'pdf') {
     if (!id) return;
@@ -387,6 +392,32 @@ export default function Phase5() {
       setError(err instanceof Error ? err.message : 'Erro ao publicar na loja');
     } finally {
       setStorePublishing(false);
+    }
+  }
+
+  function toggleChannel(ch: DistributionChannel) {
+    setSelectedChannels((prev) => {
+      const next = new Set(prev);
+      if (next.has(ch)) next.delete(ch); else next.add(ch);
+      return next;
+    });
+  }
+
+  async function submitDistribution() {
+    if (!id || selectedChannels.size === 0) return;
+    setDistPublishing(true);
+    setError('');
+    try {
+      const res = await api.post<{ message: string }>('/api/marketplace/distribution/opt-in', {
+        projectId: id,
+        selectedChannels: Array.from(selectedChannels),
+      });
+      setDistResult(res);
+      await fetchProject(id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao submeter distribuição');
+    } finally {
+      setDistPublishing(false);
     }
   }
 
@@ -491,6 +522,12 @@ export default function Phase5() {
               className="data-[state=active]:bg-[#1E3A8A] data-[state=active]:text-white"
             >
               Loja
+            </TabsTrigger>
+            <TabsTrigger
+              value="distribution"
+              className="data-[state=active]:bg-[#1E3A8A] data-[state=active]:text-white"
+            >
+              Distribuição
             </TabsTrigger>
           </TabsList>
 
@@ -1268,6 +1305,94 @@ export default function Phase5() {
                   </p>
                 </CardContent>
               </Card>
+            )}
+          </TabsContent>
+
+          {/* ── DISTRIBUTION TAB ── */}
+          <TabsContent value="distribution" className="space-y-6">
+            {distResult ? (
+              <Card className="border-emerald-800/50 bg-emerald-950/20">
+                <CardContent className="p-8 text-center space-y-4">
+                  <div className="text-4xl">{'\u{1F30E}'}</div>
+                  <h3 className="text-xl font-bold text-emerald-400">Distribuição ativada!</h3>
+                  <p className="text-slate-400 text-sm">{distResult.message}</p>
+                  <p className="text-xs text-slate-500">Os agentes vão submeter seu livro às plataformas selecionadas.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                <Card className="border-amber-800/30 bg-amber-950/10">
+                  <CardContent className="p-5">
+                    <h3 className="font-semibold text-white mb-2">{'\u{1F30E}'} Distribua seu livro para o mundo</h3>
+                    <p className="text-sm text-slate-400">
+                      Selecione as plataformas onde deseja vender. Nós cuidamos da submissão, formatação
+                      e listagem. Uma pequena comissão é cobrada por venda em cada canal.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {DISTRIBUTION_CHANNELS.map((ch: ChannelInfo) => {
+                    const isSelected = selectedChannels.has(ch.id);
+                    return (
+                      <button
+                        key={ch.id}
+                        onClick={() => toggleChannel(ch.id)}
+                        className={`text-left rounded-xl border p-4 transition-all ${
+                          isSelected
+                            ? 'border-amber-500/50 bg-amber-950/20'
+                            : 'border-slate-700 bg-slate-900/50 hover:border-slate-600'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xl">{ch.icon}</span>
+                            <div>
+                              <h4 className={`text-sm font-medium ${isSelected ? 'text-amber-400' : 'text-white'}`}>{ch.name}</h4>
+                              <p className="text-xs text-slate-500 mt-0.5">{ch.description}</p>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <Badge className={ch.commission_percent === 0
+                              ? 'bg-emerald-900/30 text-emerald-400 text-xs'
+                              : 'bg-slate-800 text-slate-400 text-xs'
+                            }>
+                              {ch.commission_percent === 0 ? 'Sem comissão' : `${ch.commission_percent}% comissão`}
+                            </Badge>
+                            <p className="text-[10px] text-slate-600 mt-1">
+                              {ch.type === 'ebook' ? 'Ebook' : ch.type === 'print' ? 'Impresso' : ch.type === 'audiobook' ? 'Audiobook' : 'Marketplace'}
+                              {' \u00B7 '}
+                              {ch.region === 'global' ? 'Global' : ch.region === 'br' ? 'Brasil' : 'EUA'}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {selectedChannels.size > 0 && (
+                  <Card className="border-slate-700 bg-slate-900/50">
+                    <CardContent className="p-5">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h4 className="text-white font-medium">{selectedChannels.size} canal(is) selecionado(s)</h4>
+                          <p className="text-xs text-slate-500">
+                            Você recebe o valor da venda menos a comissão de cada plataforma
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={submitDistribution}
+                        disabled={distPublishing}
+                        className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-medium"
+                      >
+                        {distPublishing ? 'Submetendo...' : `Ativar distribuição em ${selectedChannels.size} plataforma(s)`}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
             )}
           </TabsContent>
         </Tabs>
