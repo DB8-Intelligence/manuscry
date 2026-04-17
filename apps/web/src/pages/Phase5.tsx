@@ -317,6 +317,9 @@ export default function Phase5() {
   const [exportLoading, setExportLoading] = useState<'epub' | 'pdf' | null>(null);
   const [preflightReport, setPreflightReport] = useState<PreflightReport | null>(null);
   const [preflightLoading, setPreflightLoading] = useState(false);
+  const [storePublishing, setStorePublishing] = useState(false);
+  const [storeResult, setStoreResult] = useState<{ store_url: string } | null>(null);
+  const [storePrice, setStorePrice] = useState('9.99');
 
   async function downloadExport(format: 'epub' | 'pdf') {
     if (!id) return;
@@ -366,6 +369,24 @@ export default function Phase5() {
       setError(err instanceof Error ? err.message : 'Erro no preflight');
     } finally {
       setPreflightLoading(false);
+    }
+  }
+
+  async function publishToStore() {
+    if (!id) return;
+    setStorePublishing(true);
+    setError('');
+    try {
+      const res = await api.post<{ store_url: string }>('/api/production/store/publish', {
+        projectId: id,
+        priceUsd: storePrice,
+      });
+      setStoreResult(res);
+      await fetchProject(id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao publicar na loja');
+    } finally {
+      setStorePublishing(false);
     }
   }
 
@@ -464,6 +485,12 @@ export default function Phase5() {
               className="data-[state=active]:bg-[#1E3A8A] data-[state=active]:text-white"
             >
               Exportar
+            </TabsTrigger>
+            <TabsTrigger
+              value="store"
+              className="data-[state=active]:bg-[#1E3A8A] data-[state=active]:text-white"
+            >
+              Loja
             </TabsTrigger>
           </TabsList>
 
@@ -1171,6 +1198,77 @@ export default function Phase5() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* ── STORE TAB ── */}
+          <TabsContent value="store" className="space-y-6">
+            {storeResult ? (
+              <Card className="border-emerald-800/50 bg-emerald-950/20">
+                <CardContent className="p-8 text-center space-y-4">
+                  <div className="text-4xl">{'\u{1F389}'}</div>
+                  <h3 className="text-xl font-bold text-emerald-400">Publicado na loja!</h3>
+                  <a
+                    href={storeResult.store_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-amber-400 underline hover:text-amber-300"
+                  >
+                    Ver na loja &rarr;
+                  </a>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="border-slate-700 bg-slate-900/50">
+                <CardHeader>
+                  <CardTitle className="text-white text-base">{'\u{1F6CD}\uFE0F'} Publicar na Loja Shopify</CardTitle>
+                  <p className="text-sm text-slate-400">
+                    Crie automaticamente o produto na sua loja Shopify com capa, descrição e metadados do livro
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-slate-500">Título</span>
+                      <p className="text-white">{(currentProject?.phase_2_data as unknown as Record<string, string>)?.title || currentProject?.name}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Autor</span>
+                      <p className="text-white">{phase5Data.biography?.author_name || 'Não definido'}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Capa</span>
+                      <p className="text-white">{hasSelectedCover ? 'Selecionada' : 'Nenhuma selecionada'}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Palavras</span>
+                      <p className="text-white">{phase4Data.total_words_written?.toLocaleString() || 0}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Preço (USD)</Label>
+                    <Input
+                      value={storePrice}
+                      onChange={(e) => setStorePrice(e.target.value)}
+                      placeholder="9.99"
+                      className="bg-slate-800 border-slate-600 text-white w-32"
+                    />
+                  </div>
+
+                  <Button
+                    onClick={publishToStore}
+                    disabled={storePublishing}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+                  >
+                    {storePublishing ? 'Publicando na loja...' : 'Publicar na Shopify'}
+                  </Button>
+
+                  <p className="text-xs text-slate-500 text-center">
+                    A IA monta a página do produto com capa, descrição HTML e metadados KDP.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </main>

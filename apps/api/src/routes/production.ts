@@ -8,6 +8,7 @@ import { buildAudiobookAdapterPrompt } from '../services/prompts/phase4c.prompt.
 import { generateEpub } from '../services/epub.service.js';
 import { generatePdf } from '../services/pdf.service.js';
 import { runPreflightChecks, type PreflightReport } from '../services/preflight.service.js';
+import { publishBookToStore, isShopifyConfigured, type PublishToStoreInput } from '../services/shopify.service.js';
 import type {
   Phase1Data, Phase2Data, Phase3Data, Phase4Data, Phase5Data, Project,
   BookDesignData, KdpMetadata,
@@ -323,5 +324,76 @@ productionRouter.post('/preflight', async (req: AuthenticatedRequest, res) => {
   } catch (err) {
     const e = err as Error & { statusCode?: number };
     res.status(e.statusCode || 500).json({ error: e.message });
+  }
+});
+
+// ── SHOPIFY STORE INTEGRATION ────────────────────────────────────────────────
+
+// GET /api/production/store/status — check if Shopify is configured
+productionRouter.get('/store/status', requireAuth, async (_req: AuthenticatedRequest, res) => {
+  res.json({ configured: isShopifyConfigured() });
+});
+
+// POST /api/production/store/publish — publish book as Shopify product
+productionRouter.post('/store/publish', async (req: AuthenticatedRequest, res) => {
+  const { projectId, priceUsd } = req.body as { projectId: string; priceUsd?: string };
+  if (!projectId) { res.status(400).json({ error: 'projectId obrigatório' }); return; }
+
+  if (!isShopifyConfigured()) {
+    res.status(503).json({ error: 'Shopify não configurado. Configure SHOPIFY_STORE_URL e SHOPIFY_ACCESS_TOKEN.' });
+    return;
+  }
+
+  try {
+    const project = await getProject(projectId, req.userId!);
+
+    const bookBible = (project.phase_2_data || {}) as Record<string, string>;
+    const phase1Data = project.phase_1_data as Phase1Data | null;
+    const phase4Data = project.phase_4_data as Phase4Data | null;
+    const phase5Data = project.phase_5_data as Phase5Data | null;
+    const metadata = phase5Data?.metadata;
+    const biography = phase5Data?.biography;
+    const covers = phase5Data?.covers;
+    const selectedCover = covers?.covers?.find((c) => c.selected);
+    const design = phase5Data?.design;
+
+    const input: PublishToStoreInput = {
+      title: bookBible.title || project.name || 'Untitled',
+      subtitle: bookBible.subtitle || undefined,
+      description_html: (metadata?.description_html as string) || bookBible.synopsis || '',
+      author_name: biography?.author_name || 'Author',
+      genre: project.genre || 'General',
+      cover_image_url: selectedCover?.image_url || null,
+      price_usd: priceUsd || phase1Data?.book_profile?.price_range_usd?.split('-')[0]?.replace('$', '').trim() || '9.99',
+      price_brl: phase1Data?.book_profile?.price_range_brl?.split('-')[0]?.replace('R$', '').trim() || '29.90',
+      isbn: project.isbn_ebook || undefined,
+      page_count: design?.interior?.estimated_page_count || undefined,
+      word_count: phase4Data?.total_words_written || undefined,
+      tags: (metadata?.keywords?.primary as string[]) || [],
+      manuscry_project_id: projectId,
+    };
+
+    const result = await publishBookToStore(input);
+
+    // Save store info back to project
+    await supabaseAdmin
+      .from('projects')
+      .update({
+        status: 'published',
+        phase_5_data: {
+          ...phase5Data,
+          store: {
+            shopify_product_id: result.shopify_product_id,
+            shopify_handle: result.shopify_handle,
+            store_url: result.store_url,
+            published_at: new Date().toISOString(),
+          },
+        },
+      })
+      .eq('id', projectId);
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
   }
 });
