@@ -14,6 +14,7 @@ import Phase3 from '@/pages/Phase3';
 import Phase4 from '@/pages/Phase4';
 import Phase5 from '@/pages/Phase5';
 import SocialStudio from '@/pages/SocialStudio';
+import ManuscriptEditor from '@/pages/ManuscriptEditor';
 import Settings from '@/pages/Settings';
 import Blog from '@/pages/Blog';
 import BlogArticle from '@/pages/BlogArticle';
@@ -82,6 +83,7 @@ export default function App() {
           <Route path="/projects/:id/phase-4" element={<ProtectedRoute><Phase4 /></ProtectedRoute>} />
           <Route path="/projects/:id/phase-5" element={<ProtectedRoute><Phase5 /></ProtectedRoute>} />
           <Route path="/projects/:id/social" element={<ProtectedRoute><SocialStudio /></ProtectedRoute>} />
+          <Route path="/projects/:id/editor" element={<ProtectedRoute><ManuscriptEditor /></ProtectedRoute>} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>

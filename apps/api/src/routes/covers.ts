@@ -3,13 +3,18 @@ import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { supabaseAdmin } from '../services/supabase.js';
 import { generateStructured } from '../services/claude.service.js';
 import { generateMultipleCovers } from '../services/fal.service.js';
-import { buildCoverPromptsPrompt } from '../services/prompts/phase5a.prompt.js';
-import type { Phase1Data, Phase5Data, CoverData, CoverVariation } from '@manuscry/shared';
+import { buildCoverPromptsPrompt, buildBackCoverPrompt } from '../services/prompts/phase5a.prompt.js';
+import type {
+  Phase1Data, Phase5Data, CoverData, CoverVariation, BackCoverContent, BiographyData,
+} from '@manuscry/shared';
 
 export const coversRouter = Router();
 coversRouter.use(requireAuth);
 
-// POST /api/covers/generate — generate 5 cover variations
+const MAX_COVER_GENERATIONS = 3;
+const COVERS_PER_GENERATION = 3;
+
+// POST /api/covers/generate — generate 3 cover variations (max 3 rounds)
 coversRouter.post('/generate', async (req: AuthenticatedRequest, res) => {
   const { projectId } = req.body as { projectId: string };
 
@@ -31,9 +36,16 @@ coversRouter.post('/generate', async (req: AuthenticatedRequest, res) => {
       return;
     }
 
-    const phasesCompleted: number[] = project.phases_completed || [];
-    if (!phasesCompleted.includes(4)) {
-      res.status(400).json({ error: 'Complete a Fase 4 (Escrita) antes de gerar capas' });
+    // Check generation limit
+    const existing5 = (project.phase_5_data || {}) as Partial<Phase5Data>;
+    const currentCount = existing5.covers?.generation_count || 0;
+
+    if (currentCount >= MAX_COVER_GENERATIONS) {
+      res.status(400).json({
+        error: `Limite de ${MAX_COVER_GENERATIONS} gerações de capa atingido para este livro.`,
+        generation_count: currentCount,
+        max_generations: MAX_COVER_GENERATIONS,
+      });
       return;
     }
 
@@ -48,19 +60,21 @@ coversRouter.post('/generate', async (req: AuthenticatedRequest, res) => {
     const genre = project.genre || 'Fiction';
     const market = (project.market || 'pt-br') as 'pt-br' | 'en';
 
-    // Step 1: Claude generates 5 cover prompts
+    // Claude generates 3 cover prompts
     const { system, user } = buildCoverPromptsPrompt(bookBible, bookProfile, genre, market);
     const coverPlan = await generateStructured<{
       negative_prompt: string;
       covers: Array<Omit<CoverVariation, 'image_url' | 'image_width' | 'image_height' | 'selected'>>;
     }>(system, user, 4096);
 
-    // Step 2: Fal.ai generates the actual images
-    const prompts = coverPlan.covers.map((c) => c.prompt);
+    // Limit to 3 covers per generation
+    const limitedCovers = coverPlan.covers.slice(0, COVERS_PER_GENERATION);
+
+    // Fal.ai generates images
+    const prompts = limitedCovers.map((c) => c.prompt);
     const images = await generateMultipleCovers(prompts, coverPlan.negative_prompt);
 
-    // Merge plan + images
-    const covers: CoverVariation[] = coverPlan.covers.map((c, i) => ({
+    const covers: CoverVariation[] = limitedCovers.map((c, i) => ({
       ...c,
       image_url: images[i]?.url || null,
       image_width: images[i]?.width || null,
@@ -68,14 +82,24 @@ coversRouter.post('/generate', async (req: AuthenticatedRequest, res) => {
       selected: false,
     }));
 
+    // Generate back cover content
+    const bioData = existing5.biography as BiographyData | null;
+    const authorBio = bioData?.bios?.back_cover || bioData?.bios?.kdp_full || '';
+
+    const backCoverPrompt = buildBackCoverPrompt(bookBible, authorBio, market);
+    const backCover = await generateStructured<BackCoverContent>(
+      backCoverPrompt.system, backCoverPrompt.user, 2048,
+    );
+
     const coverData: CoverData = {
       negative_prompt: coverPlan.negative_prompt,
       covers,
+      back_cover: backCover,
+      generation_count: currentCount + 1,
+      max_generations: MAX_COVER_GENERATIONS,
       generated_at: new Date().toISOString(),
     };
 
-    // Save to phase_5_data
-    const existing5 = (project.phase_5_data || {}) as Partial<Phase5Data>;
     const phase5Data: Phase5Data = {
       covers: coverData,
       biography: existing5.biography || null,
@@ -127,7 +151,6 @@ coversRouter.post('/select', async (req: AuthenticatedRequest, res) => {
       return;
     }
 
-    // Deselect all, select the chosen one
     phase5Data.covers.covers.forEach((c, i) => {
       c.selected = i === variationIndex;
     });

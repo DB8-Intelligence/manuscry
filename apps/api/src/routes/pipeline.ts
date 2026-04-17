@@ -9,7 +9,7 @@ import { buildPhase3Prompt } from '../services/prompts/phase3.prompt.js';
 import { buildChapterWriterPrompt, buildHumanizerPrompt } from '../services/prompts/phase4.prompt.js';
 import type {
   Phase0Data, Phase1Data, Phase2Data, Phase3Data, Phase4Data,
-  AuthorAnswers, WrittenChapter, ChapterOutline,
+  AuthorAnswers, WrittenChapter, ChapterOutline, ManuscriptStatus,
 } from '@manuscry/shared';
 
 export const pipelineRouter = Router();
@@ -279,7 +279,7 @@ pipelineRouter.post('/phase3', async (req: AuthenticatedRequest, res) => {
 function getPhase4Data(project: Record<string, unknown>): Phase4Data {
   const existing = project.phase_4_data as Phase4Data | null;
   if (existing?.chapters) return existing;
-  return { chapters: [], total_words_written: 0 };
+  return { chapters: [], total_words_written: 0, manuscript_status: 'draft' };
 }
 
 // POST /api/pipeline/phase4/write — stream-write a single chapter via SSE
@@ -517,5 +517,50 @@ pipelineRouter.post('/phase4/humanize', async (req: AuthenticatedRequest, res) =
       res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`);
       res.end();
     }
+  }
+});
+
+// POST /api/pipeline/phase4/publish — submit manuscript for agent review
+pipelineRouter.post('/phase4/publish', async (req: AuthenticatedRequest, res) => {
+  const { projectId } = req.body as { projectId: string };
+
+  if (!projectId) {
+    res.status(400).json({ error: 'projectId obrigatório' });
+    return;
+  }
+
+  try {
+    const project = await getOwnedProject(projectId, req.userId!);
+    const phase4Data = project.phase_4_data as Phase4Data | null;
+    if (!phase4Data?.chapters?.length) {
+      res.status(400).json({ error: 'Nenhum capítulo encontrado' });
+      return;
+    }
+
+    const writtenChapters = phase4Data.chapters.filter(
+      (ch: WrittenChapter) => ch.content && ch.content.trim().length > 0,
+    );
+    if (writtenChapters.length === 0) {
+      res.status(400).json({ error: 'Nenhum capítulo com conteúdo' });
+      return;
+    }
+
+    // Update manuscript status to review
+    const updatedPhase4: Phase4Data = {
+      ...phase4Data,
+      manuscript_status: 'review' as ManuscriptStatus,
+    };
+
+    await savePhaseData(projectId, 4, updatedPhase4);
+
+    res.json({
+      status: 'review',
+      chapters_submitted: writtenChapters.length,
+      total_words: updatedPhase4.total_words_written,
+      message: 'Manuscrito enviado para revisão dos agentes. O processo de finalização será iniciado.',
+    });
+  } catch (err) {
+    const e = err as Error & { statusCode?: number };
+    res.status(e.statusCode || 500).json({ error: e.message });
   }
 });

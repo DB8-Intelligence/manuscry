@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProjectStore } from '@/stores/projectStore';
 import { PIPELINE_PHASES } from '@manuscry/shared';
+import type { Phase4Data, Phase5Data, CoverData } from '@manuscry/shared';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
@@ -112,8 +113,53 @@ export default function ProjectView() {
           })}
         </div>
 
-        {/* Social Studio link */}
-        <div className="mt-8">
+        {/* Quick actions */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Manuscript Editor */}
+          <button
+            onClick={() => navigate(`/projects/${currentProject.id}/editor`)}
+            className="text-left rounded-xl border border-blue-800/30 bg-blue-950/10 p-5 hover:border-blue-700/50 transition-all"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <span className="text-xs font-mono text-blue-400">EDITOR</span>
+              {(currentProject.phase_4_data as Phase4Data | null)?.manuscript_status === 'review' && (
+                <Badge className="bg-amber-900/30 text-amber-400 text-xs">Em revisão</Badge>
+              )}
+            </div>
+            <h3 className="font-semibold text-white mb-1">{'\u{1F4DD}'} Editor de Manuscrito</h3>
+            <p className="text-sm text-slate-400">Edite seu rascunho como um Word e envie para publicação</p>
+          </button>
+
+          {/* Cover preview */}
+          {(() => {
+            const covers = (currentProject.phase_5_data as Phase5Data | null)?.covers as CoverData | null;
+            const selected = covers?.covers?.find((c) => c.selected);
+            return (
+              <button
+                onClick={() => navigate(`/projects/${currentProject.id}/phase-5`)}
+                className="text-left rounded-xl border border-amber-800/30 bg-amber-950/10 p-5 hover:border-amber-700/50 transition-all"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <span className="text-xs font-mono text-amber-400">CAPAS</span>
+                  {covers && (
+                    <Badge className="bg-slate-800 text-slate-400 text-xs">
+                      {covers.generation_count}/{covers.max_generations} gerações
+                    </Badge>
+                  )}
+                </div>
+                <h3 className="font-semibold text-white mb-1">{'\u{1F3A8}'} Capas e Contracapa</h3>
+                <p className="text-sm text-slate-400">
+                  {selected
+                    ? `Capa selecionada: "${selected.style}" (score ${selected.score.toFixed(1)})`
+                    : '3 modelos por vez, máximo 3 gerações por livro'}
+                </p>
+              </button>
+            );
+          })()}
+        </div>
+
+        {/* Social Studio */}
+        <div className="mt-4">
           <button
             onClick={() => navigate(`/projects/${currentProject.id}/social`)}
             className="w-full text-left rounded-xl border border-purple-800/30 bg-purple-950/10 p-5 hover:border-purple-700/50 transition-all"

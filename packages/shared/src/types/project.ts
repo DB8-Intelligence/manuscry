@@ -187,7 +187,9 @@ export interface Phase3Data {
 
 // ── Phase 4 — Writing Engine ─────────────────────────────────────────────────
 
-export type WrittenChapterStatus = 'pending' | 'writing' | 'completed' | 'humanized';
+export type WrittenChapterStatus = 'pending' | 'writing' | 'completed' | 'humanized' | 'edited';
+
+export type ManuscriptStatus = 'draft' | 'review' | 'approved' | 'published';
 
 export interface WrittenChapter {
   number: number;
@@ -202,6 +204,7 @@ export interface WrittenChapter {
 export interface Phase4Data {
   chapters: WrittenChapter[];
   total_words_written: number;
+  manuscript_status: ManuscriptStatus;
 }
 
 // ── Phase 5 — Production Studio ──────────────────────────────────────────────
@@ -222,9 +225,24 @@ export interface CoverVariation {
   selected: boolean;
 }
 
+export interface BackCoverContent {
+  synopsis_text: string;
+  author_bio_short: string;
+  barcode_area: string;
+  spine_text: string;
+}
+
+export interface CoverSet {
+  front: CoverVariation[];
+  back: BackCoverContent | null;
+}
+
 export interface CoverData {
   negative_prompt: string;
   covers: CoverVariation[];
+  back_cover: BackCoverContent | null;
+  generation_count: number;
+  max_generations: number;
   generated_at: string | null;
 }
 

@@ -111,3 +111,72 @@ blogRouter.post('/generate', requireAuth, async (req: AuthenticatedRequest, res)
     res.status(500).json({ error: (err as Error).message });
   }
 });
+
+// POST /api/blog/auto-publish — automated: generate topics + write + publish
+// Called by cron job or n8n webhook (uses internal API key, not user auth)
+blogRouter.post('/auto-publish', async (req, res) => {
+  const internalKey = req.headers['x-internal-key'];
+  if (internalKey !== process.env.INTERNAL_API_KEY) {
+    res.status(401).json({ error: 'Invalid internal key' });
+    return;
+  }
+
+  const market = (req.body?.market || 'pt-br') as 'pt-br' | 'en';
+
+  try {
+    // Step 1: Generate topics
+    const topicsPrompt = buildBlogTopicsPrompt(market);
+    const topicsResult = await generateStructured<{ topics: BlogGenerationTopic[] }>(
+      topicsPrompt.system, topicsPrompt.user, 2048,
+    );
+
+    if (!topicsResult.topics?.length) {
+      res.status(500).json({ error: 'No topics generated' });
+      return;
+    }
+
+    // Step 2: Pick first topic and write the article
+    const topic = topicsResult.topics[0];
+    const postPrompt = buildBlogPostPrompt(topic, market);
+    const postResult = await generateStructured<Record<string, unknown>>(
+      postPrompt.system, postPrompt.user, 8192,
+    );
+
+    const now = new Date().toISOString();
+
+    // Step 3: Save and auto-publish
+    const { data, error } = await supabaseAdmin
+      .from('blog_posts')
+      .insert({
+        slug: (postResult.slug as string) || topic.title.toLowerCase().replace(/\s+/g, '-').slice(0, 80),
+        title: (postResult.title as string) || topic.title,
+        excerpt: (postResult.excerpt as string) || '',
+        content: (postResult.content as string) || '',
+        cover_image_url: null,
+        category: (postResult.category as string) || topic.category,
+        tags: (postResult.tags as string[]) || topic.target_keywords,
+        author_name: 'Manuscry Editorial',
+        status: 'published',
+        seo_title: (postResult.seo_title as string) || '',
+        seo_description: (postResult.seo_description as string) || '',
+        cta_text: (postResult.cta_text as string) || 'Experimente o Manuscry grátis',
+        cta_url: (postResult.cta_url as string) || 'https://manuscry.ai',
+        published_at: now,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    res.status(201).json({
+      published: true,
+      post: { id: data.id, slug: data.slug, title: data.title },
+      topics_generated: topicsResult.topics.length,
+    });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
