@@ -168,6 +168,21 @@ export default function ProjectView() {
           })()}
         </div>
 
+        {/* Design Studio */}
+        <div className="mt-4">
+          <button
+            onClick={() => navigate(`/projects/${currentProject.id}/design`)}
+            className="w-full text-left rounded-xl border border-pink-800/30 bg-pink-950/10 p-5 hover:border-pink-700/50 transition-all"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <span className="text-xs font-mono text-pink-400">DESIGN</span>
+              <Badge className="bg-pink-900/30 text-pink-400">{'\u{1F3A8}'} Canva</Badge>
+            </div>
+            <h3 className="font-semibold text-white mb-1">Design Studio</h3>
+            <p className="text-sm text-slate-400">Crie capas, posts e materiais com Canva integrado</p>
+          </button>
+        </div>
+
         {/* Editorial Calendar */}
         <div className="mt-4">
           <button

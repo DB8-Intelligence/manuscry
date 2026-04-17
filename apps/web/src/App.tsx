@@ -19,6 +19,7 @@ import UploadManuscript from '@/pages/UploadManuscript';
 import Achievements from '@/pages/Achievements';
 import Developers from '@/pages/Developers';
 import EditorialCalendarPage from '@/pages/EditorialCalendar';
+import DesignStudio from '@/pages/DesignStudio';
 import Settings from '@/pages/Settings';
 import Blog from '@/pages/Blog';
 import BlogArticle from '@/pages/BlogArticle';
@@ -100,6 +101,7 @@ export default function App() {
           <Route path="/projects/:id/social" element={<ProtectedRoute><SocialStudio /></ProtectedRoute>} />
           <Route path="/projects/:id/editor" element={<ProtectedRoute><ManuscriptEditor /></ProtectedRoute>} />
           <Route path="/projects/:id/calendar" element={<ProtectedRoute><EditorialCalendarPage /></ProtectedRoute>} />
+          <Route path="/projects/:id/design" element={<ProtectedRoute><DesignStudio /></ProtectedRoute>} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>

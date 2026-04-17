@@ -139,7 +139,7 @@
 **Impacto:** Enterprise play. Receita recorrente de alto ticket.
 **Estimativa:** 3-4 semanas.
 
-### 14. Integração com Canva — REGISTRADO
+### 14. Integração com Canva — IMPLEMENTADO
 **Descrição:** Edição avançada de capas e materiais de marketing via Canva.
 **Escopo:**
 - Botão "Editar no Canva" na capa gerada

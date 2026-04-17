@@ -18,6 +18,7 @@ import { analyticsRouter } from './routes/analytics.js';
 import { featuresRouter } from './routes/features.js';
 import { collaborationRouter } from './routes/collaboration.js';
 import { publicApiRouter, apiKeysManagementRouter } from './routes/public-api.js';
+import { canvaRouter } from './routes/canva.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -76,6 +77,7 @@ app.use('/api/features', featuresRouter);
 app.use('/api/collab', collaborationRouter);
 app.use('/api/api-keys', apiKeysManagementRouter);
 app.use('/v1', publicApiRouter);
+app.use('/api/canva', canvaRouter);
 
 // --- 404 handler ---
 app.use((_req, res) => {
