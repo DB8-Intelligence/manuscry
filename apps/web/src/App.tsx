@@ -20,6 +20,7 @@ import Settings from '@/pages/Settings';
 import Blog from '@/pages/Blog';
 import BlogArticle from '@/pages/BlogArticle';
 import Marketplace from '@/pages/Marketplace';
+import BookPreview from '@/pages/BookPreview';
 import Royalties from '@/pages/Royalties';
 import Analytics from '@/pages/Analytics';
 import NotFound from '@/pages/NotFound';
@@ -72,6 +73,7 @@ export default function App() {
           <Route path="/blog" element={<Blog />} />
           <Route path="/blog/:slug" element={<BlogArticle />} />
           <Route path="/store" element={<Marketplace />} />
+          <Route path="/store/preview/:projectId" element={<BookPreview />} />
 
           {/* Protected */}
           <Route path="/welcome" element={<ProtectedRoute><Welcome /></ProtectedRoute>} />
