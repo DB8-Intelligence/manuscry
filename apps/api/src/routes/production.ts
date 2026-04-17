@@ -5,10 +5,12 @@ import { generateStructured } from '../services/claude.service.js';
 import { buildBookDesignPrompt } from '../services/prompts/phase5c.prompt.js';
 import { buildKdpMetadataPrompt } from '../services/prompts/phase5e.prompt.js';
 import { buildAudiobookAdapterPrompt } from '../services/prompts/phase4c.prompt.js';
+import { generateEpub } from '../services/epub.service.js';
+import { generatePdf } from '../services/pdf.service.js';
 import type {
-  Phase1Data, Phase3Data, Phase4Data, Phase5Data,
+  Phase1Data, Phase2Data, Phase3Data, Phase4Data, Phase5Data,
   BookDesignData, KdpMetadata,
-  AudiobookChapterScript, AudiobookData,
+  AudiobookChapterScript, AudiobookData, BiographyData,
 } from '@manuscry/shared';
 
 export const productionRouter = Router();
@@ -223,6 +225,83 @@ productionRouter.post('/audiobook/all', async (req: AuthenticatedRequest, res) =
     });
 
     res.json(audiobook);
+  } catch (err) {
+    const e = err as Error & { statusCode?: number };
+    res.status(e.statusCode || 500).json({ error: e.message });
+  }
+});
+
+// ── EXPORT — EPUB/PDF generation ───────────���─────────────────────────────────
+
+// POST /api/production/export/epub — generate and download EPUB
+productionRouter.post('/export/epub', async (req: AuthenticatedRequest, res) => {
+  const { projectId } = req.body as { projectId: string };
+  if (!projectId) { res.status(400).json({ error: 'projectId obrigatório' }); return; }
+
+  try {
+    const project = await getProject(projectId, req.userId!);
+    const phase4Data = project.phase_4_data as Phase4Data | null;
+    const writtenChapters = phase4Data?.chapters.filter((ch) => ch.content) || [];
+    if (writtenChapters.length === 0) {
+      res.status(400).json({ error: 'Nenhum capítulo escrito' });
+      return;
+    }
+
+    const bookBible = (project.phase_2_data || {}) as Record<string, string>;
+    const bioData = (project.phase_5_data as Phase5Data | null)?.biography as BiographyData | null;
+    const market = (project.market || 'pt-br') as string;
+
+    const epubBuffer = await generateEpub(writtenChapters, {
+      title: bookBible.title || project.name || 'Untitled',
+      subtitle: bookBible.subtitle || undefined,
+      author: bioData?.author_name || 'Author',
+      language: market === 'pt-br' ? 'pt-BR' : 'en',
+      description: bookBible.synopsis || '',
+    });
+
+    const filename = `${(bookBible.title || project.name || 'book').replace(/[^a-zA-Z0-9]/g, '_')}.epub`;
+
+    res.setHeader('Content-Type', 'application/epub+zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', epubBuffer.length);
+    res.send(epubBuffer);
+  } catch (err) {
+    const e = err as Error & { statusCode?: number };
+    res.status(e.statusCode || 500).json({ error: e.message });
+  }
+});
+
+// POST /api/production/export/pdf — generate and download PDF
+productionRouter.post('/export/pdf', async (req: AuthenticatedRequest, res) => {
+  const { projectId } = req.body as { projectId: string };
+  if (!projectId) { res.status(400).json({ error: 'projectId obrigatório' }); return; }
+
+  try {
+    const project = await getProject(projectId, req.userId!);
+    const phase4Data = project.phase_4_data as Phase4Data | null;
+    const writtenChapters = phase4Data?.chapters.filter((ch) => ch.content) || [];
+    if (writtenChapters.length === 0) {
+      res.status(400).json({ error: 'Nenhum capítulo escrito' });
+      return;
+    }
+
+    const bookBible = (project.phase_2_data || {}) as Phase2Data & Record<string, string>;
+    const phase5Data = project.phase_5_data as Phase5Data | null;
+    const bioData = phase5Data?.biography as BiographyData | null;
+
+    const pdfBuffer = await generatePdf(writtenChapters, {
+      title: bookBible.title || project.name || 'Untitled',
+      subtitle: bookBible.subtitle || undefined,
+      author: bioData?.author_name || 'Author',
+      design: phase5Data?.design || null,
+    });
+
+    const filename = `${(bookBible.title || project.name || 'book').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
   } catch (err) {
     const e = err as Error & { statusCode?: number };
     res.status(e.statusCode || 500).json({ error: e.message });

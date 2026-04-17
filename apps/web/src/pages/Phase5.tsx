@@ -295,7 +295,47 @@ export default function Phase5() {
     }
   }
 
+  const [exportLoading, setExportLoading] = useState<'epub' | 'pdf' | null>(null);
+
+  async function downloadExport(format: 'epub' | 'pdf') {
+    if (!id) return;
+    setExportLoading(format);
+    setError('');
+    try {
+      const headers = await (async () => {
+        const { supabase } = await import('@/lib/supabase');
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        return token ? { Authorization: `Bearer ${token}` } : {} as Record<string, string>;
+      })();
+      const apiUrl = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${apiUrl}/api/production/export/${format}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers } as HeadersInit,
+        body: JSON.stringify({ projectId: id }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(body.error || res.statusText);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = res.headers.get('content-disposition')?.match(/filename="(.+)"/)?.[1] || `book.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Erro ao exportar ${format.toUpperCase()}`);
+    } finally {
+      setExportLoading(null);
+    }
+  }
+
   const hasSelectedCover = coverData?.covers?.some((c) => c.selected) || false;
+  const hasWrittenChapters = phase4Data.chapters.some((ch) => ch.content);
 
   return (
     <div className="min-h-screen bg-[#0F172A]">
@@ -372,6 +412,12 @@ export default function Phase5() {
               {audioData && (
                 <span className="ml-2 w-2 h-2 rounded-full bg-emerald-400 inline-block" />
               )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="export"
+              className="data-[state=active]:bg-[#1E3A8A] data-[state=active]:text-white"
+            >
+              Exportar
             </TabsTrigger>
           </TabsList>
 
@@ -835,6 +881,89 @@ export default function Phase5() {
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          {/* ── EXPORT TAB ── */}
+          <TabsContent value="export" className="space-y-6">
+            <Card className="border-slate-700 bg-slate-900/50">
+              <CardHeader>
+                <CardTitle className="text-white text-base">Exportar Livro</CardTitle>
+                <p className="text-sm text-slate-400">
+                  Gere arquivos prontos para upload nas plataformas de publicação
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!hasWrittenChapters && (
+                  <div className="text-center py-8 text-slate-500">
+                    <p>Nenhum capítulo escrito. Complete a Fase 4 primeiro.</p>
+                  </div>
+                )}
+
+                {hasWrittenChapters && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* EPUB */}
+                    <Card className="border-slate-700 bg-slate-800/50">
+                      <CardContent className="p-5 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-blue-900/30 flex items-center justify-center text-blue-400 text-lg">
+                            {'\u{1F4D6}'}
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-white">EPUB</h4>
+                            <p className="text-xs text-slate-400">Para Kindle KDP, Apple Books, Kobo</p>
+                          </div>
+                        </div>
+                        <ul className="text-xs text-slate-500 space-y-1">
+                          <li>EPUB 3.0 com TOC navegável</li>
+                          <li>Tipografia adequada ao gênero</li>
+                          <li>{phase4Data.chapters.filter((ch) => ch.content).length} capítulos incluídos</li>
+                        </ul>
+                        <Button
+                          onClick={() => downloadExport('epub')}
+                          disabled={exportLoading !== null}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          {exportLoading === 'epub' ? 'Gerando EPUB...' : 'Baixar EPUB'}
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    {/* PDF */}
+                    <Card className="border-slate-700 bg-slate-800/50">
+                      <CardContent className="p-5 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-red-900/30 flex items-center justify-center text-red-400 text-lg">
+                            {'\u{1F4C4}'}
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-white">PDF</h4>
+                            <p className="text-xs text-slate-400">Para KDP Print, IngramSpark</p>
+                          </div>
+                        </div>
+                        <ul className="text-xs text-slate-500 space-y-1">
+                          <li>Layout com specs de design{designData ? ' (aplicados)' : ''}</li>
+                          <li>Margens e tipografia para impressão</li>
+                          <li>{phase4Data.chapters.filter((ch) => ch.content).length} capítulos incluídos</li>
+                        </ul>
+                        <Button
+                          onClick={() => downloadExport('pdf')}
+                          disabled={exportLoading !== null}
+                          className="w-full bg-red-600 hover:bg-red-700 text-white"
+                        >
+                          {exportLoading === 'pdf' ? 'Gerando PDF...' : 'Baixar PDF'}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {hasWrittenChapters && (
+                  <p className="text-xs text-slate-500 text-center">
+                    Os arquivos são gerados sob demanda. Gere os specs de Design primeiro para PDF otimizado.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>
